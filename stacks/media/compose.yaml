@@ -1,0 +1,352 @@
+networks:
+  media:
+    driver: bridge
+    name: media
+services:
+  bazarr:
+    container_name: bazarr
+    environment: &common-env
+      PGID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
+      TZ: ${TZ:-America/New_York}
+    image: lscr.io/linuxserver/bazarr
+    labels:
+      homepage.description: Subtitle Curator
+      homepage.group: Media
+      homepage.href: https://bazarr.${DOMAIN:?no domain defined}
+      homepage.icon: bazarr
+      homepage.name: Bazarr
+      homepage.widget.key: ${BAZARR_API_KEY:-}
+      homepage.widget.type: bazarr
+      homepage.widget.url: http://bazarr:6767
+      traefik.enable: true
+      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN:?no domain defined}`) || Host(`subs.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/bazarr:/config
+      - /mnt/media/movies:/movies
+      - /mnt/media/series:/series
+  flaresolverr:
+    container_name: flaresolverr
+    environment:
+      <<: *common-env
+      CAPTCHA_SOLVER: none
+      LOG_HTML: false
+      LOG_LEVEL: info
+    image: ghcr.io/flaresolverr/flaresolverr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 8191:8191
+    restart: unless-stopped
+  gluetun:
+    cap_add:
+      - NET_ADMIN
+    container_name: gluetun
+    devices:
+      - /dev/net/tun
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      <<: *common-env
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:?password not defined}
+      OPENVPN_USER: ${OPENVPN_USER:?user not defined}
+      SERVER_NAMES: ${OPENVPN_SERVERS:?servers not defined}
+      VPN_SERVICE_PROVIDER: ${OPENVPN_PROVIDER:?provider not defined}
+    image: qmcgaw/gluetun
+    labels:
+      homepage.description: VPN client for containers
+      homepage.group: Media
+      homepage.href: https://gluetun.${DOMAIN:?no domain defined}/v1/publicip/ip
+      homepage.icon: gluetun
+      homepage.name: Gluetun
+      homepage.widget.fields: '["public_ip", "region", "country"]'
+      homepage.widget.type: gluetun
+      homepage.widget.url: http://gluetun:8000
+      traefik.enable: true
+      traefik.http.routers.gluetun.rule: Host(`gluetun.${DOMAIN:?no domain defined}`)
+      traefik.http.services.gluetun.loadbalancer.server.port: 8000
+    networks:
+      - media
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+      - 10095:10095
+    restart: always
+    volumes:
+      - /dev/net/tun:/dev/net/tun
+      - /mnt/data/docker/gluetun:/gluetun
+  lidarr:
+    container_name: lidarr
+    depends_on:
+      prowlarr:
+        condition: service_started
+      qbittorrent:
+        condition: service_started
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/lidarr
+    labels:
+      homepage.description: Personal Music Curator
+      homepage.group: Media
+      homepage.href: https://lidarr.${DOMAIN:?no domain defined}
+      homepage.icon: lidarr
+      homepage.name: Lidarr
+      homepage.widget.key: ${LIDARR_API_KEY:-}
+      homepage.widget.type: lidarr
+      homepage.widget.url: http://lidarr:8686
+      traefik.enable: true
+      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 8686:8686
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/lidarr:/config
+      - /mnt/media/downloads:/downloads
+      - /mnt/media/music:/music
+  overseerr:
+    container_name: overseerr
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/overseerr
+    labels:
+      homepage.description: Media Server Request Management
+      homepage.group: Media
+      homepage.href: https://overseerr.${DOMAIN:?no domain defined}
+      homepage.icon: overseerr
+      homepage.name: overseerr
+      homepage.widget.key: ${OVERSEERR_API_KEY:-}
+      homepage.widget.type: overseerr
+      homepage.widget.url: http://overseerr:5055
+      traefik.enable: true
+      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN:?no domain defined}`) || Host(`requests.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 5055:5055
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/overseerr:/config
+  profilarr:
+    container_name: profilarr
+    image: santiagosayshey/profilarr
+    labels:
+      homepage.description: Profile Management for *arrs
+      homepage.group: Media
+      homepage.href: https://profilarr.${DOMAIN:?no domain defined}
+      homepage.icon: profilarr
+      homepage.name: Profilarr
+      traefik.enable: true
+      traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 6868:6868
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/profilarr:/config
+  prowlarr:
+    container_name: prowlarr
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/prowlarr
+    labels:
+      homepage.description: Indexer Manager for *arrs
+      homepage.group: Media
+      homepage.href: https://prowlarr.${DOMAIN:?no domain defined}
+      homepage.icon: prowlarr
+      homepage.name: Prowlarr
+      homepage.widget.key: ${PROWLARR_API_KEY:-}
+      homepage.widget.type: prowlarr
+      homepage.widget.url: http://prowlarr:9696
+      traefik.enable: true
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/prowlarr:/config
+      - /mnt/media/downloads:/downloads
+  qbittorrent:
+    container_name: qbittorrent
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      WEBUI_PORT: 10095
+    image: lscr.io/linuxserver/qbittorrent
+    labels:
+      homepage.description: BitTorrent client for ISOs
+      homepage.group: Media
+      homepage.href: https://qbittorrent.${DOMAIN:?no domain defined}
+      homepage.icon: qbittorrent
+      homepage.name: qBittorrent
+      homepage.widget.fields: '["download", "upload", "seed", "leech"]'
+      homepage.widget.password: ${QBITTORRENT_WEBUI_PASSWORD:?qbit password not defined}
+      homepage.widget.type: qbittorrent
+      homepage.widget.url: http://gluetun:10095
+      homepage.widget.username: ${QBITTORRENT_WEBUI_USERNAME:?qbit username not defined}
+      traefik.enable: true
+      traefik.http.routers.qbittorrent.rule: Host(`qbittorrent.${DOMAIN:?no domain defined}`)
+      traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
+    network_mode: service:gluetun
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/qbittorrent:/config
+      - /mnt/media/downloads:/downloads
+  radarr:
+    container_name: radarr
+    depends_on:
+      prowlarr:
+        condition: service_started
+      qbittorrent:
+        condition: service_started
+      sabnzbd:
+        condition: service_started
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/radarr
+    labels:
+      homepage.description: Personal Movie Curator
+      homepage.group: Media
+      homepage.href: https://radarr.${DOMAIN:?no domain defined}
+      homepage.icon: radarr
+      homepage.name: Radarr
+      homepage.widget.key: ${RADARR_API_KEY:-}
+      homepage.widget.type: radarr
+      homepage.widget.url: http://radarr:7878
+      traefik.enable: true
+      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/radarr:/config
+      - /mnt/media/downloads:/downloads
+      - /mnt/media/movies:/movies
+  sabnzbd:
+    container_name: sabnzbd
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/sabnzbd
+    labels:
+      homepage.description: Binary Newsreader
+      homepage.group: Media
+      homepage.href: https://sabnzbd.${DOMAIN:?no domain defined}
+      homepage.icon: sabnzbd
+      homepage.name: sabnzbd
+      homepage.widget.key: ${SABNZBD_API_KEY:-}
+      homepage.widget.type: sabnzbd
+      homepage.widget.url: http://sabnzbd:8080
+      traefik.enable: true
+      traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 8082:8080
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/sabnzbd:/config
+      - /mnt/media/downloads:/downloads
+  sonarr:
+    container_name: sonarr
+    depends_on:
+      prowlarr:
+        condition: service_started
+      qbittorrent:
+        condition: service_started
+      sabnzbd:
+        condition: service_started
+    environment:
+      <<: *common-env
+    image: lscr.io/linuxserver/sonarr
+    labels:
+      homepage.description: Personal Series Curator
+      homepage.group: Media
+      homepage.href: https://sonarr.${DOMAIN:?no domain defined}
+      homepage.icon: sonarr
+      homepage.name: Sonarr
+      homepage.widget.key: ${SONARR_API_KEY:-}
+      homepage.widget.type: sonarr
+      homepage.widget.url: http://sonarr:8989
+      traefik.enable: true
+      traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/sonarr:/config
+      - /mnt/media/downloads:/downloads
+      - /mnt/media/series:/series
+  tautulli:
+    container_name: tautulli
+    image: lscr.io/linuxserver/tautulli
+    labels:
+      homepage.description: Media Server Companion
+      homepage.group: Media
+      homepage.href: https://tautulli.${DOMAIN:?no domain defined}
+      homepage.icon: tautulli
+      homepage.name: Tautulli
+      homepage.widget.key: ${TAUTULLI_API_KEY:-}
+      homepage.widget.type: tautulli
+      homepage.widget.url: http://tautulli:8181
+      traefik.enable: true
+      traefik.http.routers.tautulli.rule: Host(`tautulli.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 8181:8181
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/tautulli:/config
+  unpackerr:
+    container_name: unpackerr
+    environment:
+      <<: *common-env
+      UN_DEBUG: false
+      UN_DIR_MODE: 0755
+      UN_FILE_MODE: 0644
+      UN_FOLDER_0_DELETE_AFTER: 10m
+      UN_FOLDER_0_DELETE_FILES: false
+      UN_FOLDER_0_DELETE_ORIGINAL: false
+      UN_FOLDER_0_EXTRACT_PATH: /downloads
+      UN_FOLDER_0_MOVE_BACK: false
+      UN_FOLDER_0_PATH: /downloads
+      UN_INTERVAL: 2m
+      UN_MAX_RETRIES: 3
+      UN_PARALLEL: 1
+      UN_RETRY_DELAY: 5m
+      UN_START_DELAY: 1m
+    image: golift/unpackerr
+    ports:
+      - 5656:5656
+    restart: unless-stopped
+    volumes:
+      - /mnt/media/downloads:/downloads
+  watchtower:
+    container_name: watchtower
+    environment:
+      WATCHTOWER_CLEANUP: true
+      WATCHTOWER_DEBUG: true
+      WATCHTOWER_SCHEDULE: 0 0 4 * * *
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

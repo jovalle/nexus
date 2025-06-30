@@ -1,0 +1,106 @@
+networks:
+  database:
+    driver: bridge
+    name: database
+services:
+  mariadb:
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    container_name: mariadb
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: yes
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?mariadb database not defined}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?mariadb password not defined}
+      MYSQL_USER: ${MYSQL_USER:?mariadb user not defined}
+    image: mariadb:10.11
+    networks:
+      - database
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/mariadb:/var/lib/mysql
+  pgadmin:
+    container_name: pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "True"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?pgadmin email not defined}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?pgadmin password not defined}
+    image: dpage/pgadmin4
+    labels:
+      homepage.description: PostgreSQL Management Tool
+      homepage.group: Database
+      homepage.href: https://pgadmin.${DOMAIN:?no domain defined}
+      homepage.icon: postgres
+      homepage.name: Postgres
+      traefik.enable: true
+      traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN:?no domain defined}`)
+    networks:
+      - database
+    ports:
+      - 5050:80
+    restart: unless-stopped
+    user: "5050:5050"
+    volumes:
+      - /mnt/data/docker/pgadmin/pgpass:/tmp/pgpass:ro
+      - /mnt/data/docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - /mnt/data/docker/pgadmin/data:/var/lib/pgadmin
+  postgres:
+    container_name: postgres
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--encoding: UTF8"
+      POSTGRES_PASSWORD: "${POSTGRES_ROOT_PASSWORD:?postgres password not defined}"
+      POSTGRES_USER: postgres
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 30s
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      timeout: 10s
+    image: pgvector/pgvector:pg16
+    networks:
+      - database
+    ports:
+      - 5432:5432
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /mnt/data/docker/postgres/data:/var/lib/postgresql/data
+  redis:
+    container_name: redis
+    image: redis:alpine
+    networks:
+      - database
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/redis:/data
+  valkey:
+    command: --save 60 1 --loglevel warning
+    container_name: valkey
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      test: [ "CMD-SHELL", "valkey-cli ping | grep PONG" ]
+      timeout: 3s
+    image: valkey/valkey:alpine
+    networks:
+      - database
+    ports:
+      - 6379:6379
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/valkey:/data

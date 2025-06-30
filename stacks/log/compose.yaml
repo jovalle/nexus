@@ -1,0 +1,88 @@
+networks:
+  log:
+    driver: bridge
+    name: log
+services:
+  grafana:
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
+      GF_USERS_ALLOW_SIGN_UP: false
+    image: grafana/grafana
+    labels:
+      homepage.description: Metrics Visualizer
+      homepage.group: Log
+      homepage.href: https://grafana.${DOMAIN:?no domain defined}
+      homepage.icon: grafana
+      homepage.name: Grafana
+      homepage.widget.fields: '["dashboards","datasources","totalalerts","alertstriggered"]'
+      homepage.widget.password: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
+      homepage.widget.type: grafana
+      homepage.widget.url: http://grafana:3000
+      homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
+      traefik.enable: true
+      traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN:?no domain defined}`)
+    networks:
+      - log
+    ports:
+      - 3333:3000
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - /mnt/data/docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - /mnt/data/docker/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+  loki:
+    container_name: loki
+    image: grafana/loki
+    networks:
+      - log
+    ports:
+      - 3103:3100
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/loki:/loki
+  prometheus:
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --storage.tsdb.retention.time=3650d
+      - --web.enable-lifecycle
+    container_name: prometheus
+    environment:
+      PROMETHEUS_RETENTION_TIME: 3650d
+    image: prom/prometheus
+    labels:
+      homepage.description: Metrics collection
+      homepage.group: Log
+      homepage.href: https://prometheus.${DOMAIN:?no domain defined}
+      homepage.icon: prometheus
+      homepage.name: Prometheus
+      homepage.widget.type: prometheus
+      homepage.widget.url: http://prometheus:9090
+      traefik.enable: true
+      traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN:?no domain defined}`)
+    networks:
+      - log
+    ports:
+      - 9090:9090
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /mnt/data/docker/prometheus/data:/prometheus
+  promtail:
+    command: -config.file=/etc/promtail/config.yml
+    container_name: promtail
+    environment:
+      PROMTAIL_CONFIG_FILE: /etc/promtail/config.yml
+    image: grafana/promtail
+    networks:
+      - log
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/promtail/data:/var/lib/promtail/positions
+      - /mnt/data/docker/promtail/promtail-config.yaml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro

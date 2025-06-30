@@ -1,0 +1,28 @@
+networks:
+  core:
+    driver: bridge
+    name: core
+services:
+  dockge:
+    container_name: dockge
+    environment:
+      DOCKGE_ENABLE_CONSOLE: true
+      DOCKGE_STACKS_DIR: /opt/stacks
+    image: louislam/dockge:1
+    labels:
+      homepage.description: Docker GUI
+      homepage.group: Core
+      homepage.href: https://dockge.${DOMAIN:?no domain defined}
+      homepage.icon: dockge
+      homepage.name: Dockge
+      traefik.enable: true
+      traefik.http.routers.dockge.rule: Host(`dockge.${DOMAIN:?no domain defined}`) || Host(`docker.${DOMAIN:?no domain defined}`)
+    networks:
+      - core
+    ports:
+      - 5001:5001
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/data/docker/dockge:/app/data
+      - /mnt/data/nexus/stacks:/opt/stacks
