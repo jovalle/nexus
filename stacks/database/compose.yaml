@@ -11,7 +11,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:?mariadb database not defined}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?mariadb password not defined}
       MYSQL_USER: ${MYSQL_USER:?mariadb user not defined}
-    image: mariadb:10.11
+    image: mariadb:11.8
     networks:
       - database
     restart: unless-stopped
