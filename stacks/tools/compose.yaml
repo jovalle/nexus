@@ -11,7 +11,7 @@ services:
       - "--chromium-disable-javascript=true"
       - "--chromium-allow-list=file:///tmp/.*"
     container_name: gotenberg
-    image: docker.io/gotenberg/gotenberg:8.20
+    image: docker.io/gotenberg/gotenberg:8.21
     networks:
       - tools
     restart: unless-stopped
