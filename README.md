@@ -4,7 +4,7 @@
 
 # Nexus
 
-A self-hosted citadel
+A self-hosted citadel. Batteries included.
 
 </div>
 
@@ -13,10 +13,12 @@ A self-hosted citadel
 ```sh
 git clone github.com/jovalle/nexus
 cd nexus
-docker compose up -d
+make start
 ```
 
-In Dockge, add each stack directory from this repo as a new stack. Each stack contains its own `docker-compose.yml` and `.env` file.
+Each stack contains its own `compose.yml` and `.env` file which should be auto-imported by Dockge.
+
+If Dockge is not your cup of tea, `Portainer` is also included.
 
 **Note:** Changes to a stack's `.env` only affect containers in that stack referencing those variables.
 
@@ -117,3 +119,4 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), w
 * Keep sensitive information (like passwords) in the `.env` files and avoid committing secrets to version control.
 * Only modify the `.env` for the stack you wish to change; this ensures isolated configuration.
 * Use Dockge/Portainer to monitor logs and Dockge to manage updates for each stack.
+* Included `Makefile` can make multi-stack operations a breeze (e.g. `make tail`)
