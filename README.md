@@ -96,6 +96,7 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), w
 
 ### 📋 Observability
 
+* 🔍 [Beszel](https://www.beszel.dev/) – Lightweight server monitoring.
 * 📊 [Grafana](https://grafana.com) – Visualizations & dashboards for metrics.
 * 📜 [Loki](https://grafana.com/oss/loki) – Log aggregation system designed to work with Grafana.
 * 📈 [Prometheus](https://prometheus.io) – Time-series database & alerting.

@@ -3,6 +3,42 @@ networks:
     driver: bridge
     name: observability
 services:
+  beszel:
+    container_name: beszel
+    image: henrygd/beszel
+    labels:
+      homepage.description: Lightweight server monitoring platform
+      homepage.group: Observability
+      homepage.href: https://beszel.${DOMAIN:?no domain defined}
+      homepage.icon: beszel
+      homepage.name: Beszel
+      homepage.widget.fields: '["systems", "up"'
+      homepage.widget.password: ${BESZEL_ADMIN_PASSWORD:?beszel admin password not defined}
+      homepage.widget.type: beszel
+      homepage.widget.url: http://beszel:8090
+      homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
+      homepage.widget.version: 2
+      traefik.enable: true
+      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN:?no domain defined}`) || Host(`systems.${DOMAIN:?no domain defined}`)
+    networks:
+      - observability
+    ports:
+      - 8090:8090
+    restart: unless-stopped
+    volumes:
+      - /mnt/data/docker/beszel/data:/beszel_data
+  beszel-agent:
+    container_name: beszel-agent
+    depends_on:
+      - beszel
+    environment:
+      KEY: ${BESZEL_AGENT_KEY:?beszel agent key not defined}
+      LISTEN: 45876
+    image: henrygd/beszel-agent
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   grafana:
     container_name: grafana
     environment:
