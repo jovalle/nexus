@@ -14,8 +14,16 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-# Get all stack directories
-STACKS := $(shell find $(STACKS_DIR) -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort)
+# Get all stack directories in specific order due to dependencies
+STACKS := \
+  data \
+  $(shell \
+      find $(STACKS_DIR) -mindepth 1 -maxdepth 1 -type d \
+           -printf "%f\n" 2>/dev/null \
+      | grep -Ev '^(data|core)$$' \
+      | sort \
+  ) \
+	core
 
 .PHONY: help status pull start stop restart logs logs-follow cleanup backup restore list-backups health check-env
 
@@ -312,3 +320,22 @@ list-stacks: ## List all discovered stacks
 	@for stack in $(STACKS); do \
 		echo "  $(GREEN)$$stack$(NC)"; \
 	done
+
+list-services: ## List all discovered services
+	@echo "$(BLUE)Discovered services:$(NC)"
+	@find . -type f -name "compose.yaml" -exec sh -c '\
+		dir=$$(dirname "$$1"); \
+		stack=$$(basename "$$dir"); \
+		if [ "$$stack" = "." ]; then stack="root"; fi; \
+		printf "== $(GREEN)%s$(NC)stack ==\n" "$$stack"; \
+		yq -r ".services | keys | sort | .[]" "$$1"; \
+	' _ {} \;
+
+ssh: ## SSH onto nexus host (HOST=hostname for other host)
+ifdef HOST
+	@echo "$(BLUE)SSH into host: $(HOST)$(NC)"
+	@ssh -t root@$(HOST) 'cd /mnt/data/nexus && exec $$SHELL -l'
+else
+	@echo "$(BLUE)SSH into host: nexus$(NC)"
+	@ssh -t root@nexus 'cd /mnt/data/nexus && exec $$SHELL -l'
+endif
