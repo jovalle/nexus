@@ -92,6 +92,7 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), w
 * 📺 [Sonarr](https://github.com/Sonarr/Sonarr) – TV series manager that monitors RSS feeds for new episodes, organizes and renames shows using your configured indexers.
 * 📊 [Tautulli](https://github.com/Tautulli/Tautulli) – Plex Media Server monitoring and analytics; tracks usage, sends notifications and generates customizable reports.
 * 📦 [Unpackerr](https://github.com/htpcjunkie/unpackerr) – Archive automation tool; watches completed transfers, extracts archives and returns processed items to your client.
+* 🧙 [Wizarr](https://github.com/wizarrrr/wizarr) – Automated invitation and onboarding system for Plex, Jellyfin and Emby; simplifies user invites and guides them through setup.
 
 ### 📋 Observability
 

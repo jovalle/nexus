@@ -340,3 +340,19 @@ services:
     restart: unless-stopped
     volumes:
       - /mnt/media/downloads:/downloads
+  wizarr:
+    container_name: wizarr
+    environment:
+      <<: *common-env
+      DISABLE_BUILTIN_AUTH: false
+    image: ghcr.io/wizarrrr/wizarr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.wizarr.rule: Host(`wizarr.${DOMAIN:?no domain defined}`) || Host(`join.${DOMAIN:?no domain defined}`)
+    networks:
+      - media
+    ports:
+      - 5690:5690
+    volumes:
+      - /mnt/data/docker/wizarr/database:/data/database
+      - /mnt/data/docker/wizarr/wizard:/data/wizard_steps
