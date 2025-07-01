@@ -340,13 +340,3 @@ services:
     restart: unless-stopped
     volumes:
       - /mnt/media/downloads:/downloads
-  watchtower:
-    container_name: watchtower
-    environment:
-      WATCHTOWER_CLEANUP: true
-      WATCHTOWER_DEBUG: true
-      WATCHTOWER_SCHEDULE: 0 0 4 * * *
-    image: containrrr/watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock

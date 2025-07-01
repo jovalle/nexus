@@ -175,3 +175,26 @@ services:
     volumes:
       - /mnt/data/docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  watchtower:
+    container_name: watchtower
+    environment:
+      WATCHTOWER_CLEANUP: true
+      WATCHTOWER_DEBUG: true
+      WATCHTOWER_SCHEDULE: 0 0 4 * * *
+      WATCHTOWER_HTTP_API_METRICS: true
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
+    labels:
+      homepage.description:
+      homepage.group: Core
+      homepage.icon: watchtower
+      homepage.name: Watchtower
+      homepage.widget.type: watchtower
+      homepage.widget.url: http://watchtower:8080
+      homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
+      homepage.widget.fields: '["containers_scanned", "containers_updated", "containers_failed"]'
+    image: containrrr/watchtower
+    networks:
+      - core
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
