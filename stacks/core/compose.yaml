@@ -1,25 +1,19 @@
 networks:
+  app:
+    external: true
   core:
     driver: bridge
     name: core
-  database:
-    driver: bridge
-    name: database
-  log:
-    driver: bridge
-    name: log
+  data:
+    external: true
   media:
-    driver: bridge
-    name: media
+    external: true
+  observability:
+    external: true
   security:
-    driver: bridge
-    name: security
-  server:
-    driver: bridge
-    name: server
-  tools:
-    driver: bridge
-    name: tools
+    external: true
+  utility:
+    external: true
 services:
   adguard:
     container_name: adguard
@@ -53,7 +47,7 @@ services:
       - 3000:3000/tcp
       - 5443:5443/tcp
       - 5443:5443/udp
-      - 6060:6060/tcp
+      - 6666:6060/tcp
     restart: unless-stopped
     volumes:
       - /mnt/data/docker/adguard/conf:/opt/adguardhome/conf
@@ -81,12 +75,12 @@ services:
       traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN:?no domain defined}`)
     networks:
       - core
-      - database
-      - log
+      - data
       - media
+      - observability
       - security
-      - server
-      - tools
+      - app
+      - utility
     ports:
       - 3001:3000
     restart: unless-stopped
@@ -162,12 +156,12 @@ services:
       traefik.http.routers.dashboard.tls: true
     networks:
       - core
-      - database
-      - log
+      - data
       - media
+      - observability
       - security
-      - server
-      - tools
+      - app
+      - utility
     ports:
       - 8081:8080
       - 8443:443

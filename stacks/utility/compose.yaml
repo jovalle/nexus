@@ -1,9 +1,9 @@
 networks:
-  database:
+  data:
     external: true
-  tools:
+  utility:
     driver: bridge
-    name: tools
+    name: utility
 services:
   gotenberg:
     command:
@@ -13,7 +13,7 @@ services:
     container_name: gotenberg
     image: docker.io/gotenberg/gotenberg:8.20
     networks:
-      - tools
+      - utility
     restart: unless-stopped
   miniflux:
     container_name: miniflux
@@ -26,7 +26,7 @@ services:
     image: miniflux/miniflux
     labels:
       homepage.description: Minimal Feed Reader
-      homepage.group: Tools
+      homepage.group: Utility
       homepage.href: https://feeds.${DOMAIN:?no domain defined}
       homepage.icon: miniflux
       homepage.name: Miniflux
@@ -37,8 +37,8 @@ services:
       traefik.enable: true
       traefik.http.routers.miniflux.rule: Host(`miniflux.${DOMAIN:?no domain defined}`) || Host(`feeds.${DOMAIN:?no domain defined}`)
     networks:
-      - database
-      - tools
+      - data
+      - utility
     ports:
       - 8880:8080
   paperless:
@@ -48,8 +48,8 @@ services:
       - tika
     environment:
       PAPERLESS_ADMIN_MAIL: "${PAPERLESS_ADMIN_MAIL:?paperless admin mail not defined}"
-      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:?paperless admin user not defined}
       PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:?paperless admin user not defined}
       PAPERLESS_DBENGINE: postgres
       PAPERLESS_DBHOST: postgres
       PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:?paperless db password not defined}
@@ -63,20 +63,20 @@ services:
     image: ghcr.io/paperless-ngx/paperless-ngx
     labels:
       homepage.description: Paperless Document Management
-      homepage.group: Tools
+      homepage.group: Utility
       homepage.href: https://paperless.${DOMAIN:?no domain defined}
       homepage.icon: paperless
       homepage.name: Paperless
       homepage.widget.fields: '["total", "inbox"]'
       homepage.widget.password: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
-      homepage.widget.type: paperless
+      homepage.widget.type: paperlessngx
       homepage.widget.url: http://paperless:8000
       homepage.widget.username: ${PAPERLESS_ADMIN_USER:?paperless admin username not defined}
       traefik.enable: true
       traefik.http.routers.paperless.rule: Host(`paperless.${DOMAIN:?no domain defined}`)
     networks:
-      - database
-      - tools
+      - data
+      - utility
     ports:
       - 8000:8000
     restart: unless-stopped
@@ -89,5 +89,5 @@ services:
     container_name: tika
     image: docker.io/apache/tika
     networks:
-      - tools
+      - utility
     restart: unless-stopped

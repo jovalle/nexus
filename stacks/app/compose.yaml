@@ -1,9 +1,9 @@
 networks:
-  database:
-    external: true
-  server:
+  app:
     driver: bridge
-    name: server
+    name: app
+  data:
+    external: true
 services:
   immich:
     container_name: immich
@@ -21,7 +21,7 @@ services:
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     labels:
       homepage.description: Photo management and backup
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://photos.${DOMAIN:?no domain defined}
       homepage.icon: immich
       homepage.name: Immich
@@ -30,10 +30,10 @@ services:
       homepage.widget.url: http://immich:2283
       homepage.widget.version: 2
       traefik.enable: true
-      traefik.http.routers.immich.rule: Host(`photos.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.immich.rule: Host(`immich.${DOMAIN:?no domain defined}`) || Host(`photos.${DOMAIN:?no domain defined}`)
     networks:
-      - database
-      - server
+      - app
+      - data
     ports:
       - 2283:2283
     restart: unless-stopped
@@ -51,8 +51,8 @@ services:
       NODE_ENV: production
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
     networks:
-      - database
-      - server
+      - app
+      - data
     restart: unless-stopped
     volumes:
       - /mnt/data/docker/immich/cache:/cache
@@ -70,7 +70,7 @@ services:
     image: jellyfin/jellyfin
     labels:
       homepage.description: Media Server
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://jellyfin.${DOMAIN:?no domain defined}
       homepage.icon: jellyfin
       homepage.name: Jellyfin
@@ -80,7 +80,7 @@ services:
       homepage.widget.type: jellyfin
       homepage.widget.url: http://192.168.31.4:8096
       traefik.enable: true
-      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN:?no domain defined}`) || Host(`tv.${DOMAIN:?no domain defined}`)
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -95,7 +95,7 @@ services:
     image: deluan/navidrome
     labels:
       homepage.description: Personal Music Streamer
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://navidrome.${DOMAIN:?no domain defined}
       homepage.icon: navidrome
       homepage.name: Navidrome
@@ -105,9 +105,9 @@ services:
       homepage.widget.url: http://navidrome:4533
       homepage.widget.user: ${NAVIDROME_API_USER:-}
       traefik.enable: true
-      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN:?no domain defined}`) || Host(`music.${DOMAIN:?no domain defined}`)
     networks:
-      - server
+      - app
     ports:
       - 4533:4533
     restart: unless-stopped
@@ -128,7 +128,7 @@ services:
     image: nextcloud
     labels:
       homepage.description: Cloud storage and collaboration
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://nextcloud.${DOMAIN:?no domain defined}
       homepage.icon: nextcloud
       homepage.name: Nextcloud
@@ -141,10 +141,10 @@ services:
       traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
       traefik.http.routers.nextcloud.entrypoints: websecure
       traefik.http.routers.nextcloud.middlewares: nextcloud-dav
-      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN:?no domain defined}`) || Host(`cloud.${DOMAIN:?no domain defined}`)
     networks:
-      - database
-      - server
+      - app
+      - data
     ports:
       - 8888:80
     restart: unless-stopped
@@ -165,7 +165,7 @@ services:
     image: plexinc/pms-docker:plexpass
     labels:
       homepage.description: Media Server
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://plex.${DOMAIN:?no domain defined}
       homepage.icon: plex
       homepage.name: Plex
@@ -174,7 +174,7 @@ services:
       homepage.widget.type: plex
       homepage.widget.url: http://192.168.31.4:32400
       traefik.enable: true
-      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN:?no domain defined}`) || Host(`watchtower.${DOMAIN:?no domain defined}`)
       traefik.http.services.plex.loadbalancer.server.port: 32400
       traefik.http.services.plex.loadbalancer.server.url: http://127.0.0.1:32400
     network_mode: host
@@ -188,7 +188,7 @@ services:
     image: syncthing/syncthing
     labels:
       homepage.description: File synchronization
-      homepage.group: Server
+      homepage.group: Apps
       homepage.href: https://syncthing.${DOMAIN:?no domain defined}
       homepage.icon: syncthing
       homepage.name: Syncthing
@@ -196,7 +196,7 @@ services:
       traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN:?no domain defined}`)
       traefik.http.services.syncthing.loadbalancer.server.port: 8384
     networks:
-      - server
+      - app
     ports:
       - 8384:8384
       - 22000:22000/tcp

@@ -1,7 +1,7 @@
 networks:
-  database:
+  data:
     driver: bridge
-    name: database
+    name: data
 services:
   mariadb:
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
@@ -13,7 +13,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:?mariadb user not defined}
     image: mariadb:10.11
     networks:
-      - database
+      - data
     restart: unless-stopped
     volumes:
       - /mnt/data/docker/mariadb:/var/lib/mysql
@@ -31,14 +31,14 @@ services:
     image: dpage/pgadmin4
     labels:
       homepage.description: PostgreSQL Management Tool
-      homepage.group: Database
+      homepage.group: Data
       homepage.href: https://pgadmin.${DOMAIN:?no domain defined}
       homepage.icon: postgres
       homepage.name: Postgres
       traefik.enable: true
       traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN:?no domain defined}`)
     networks:
-      - database
+      - data
     ports:
       - 5050:80
     restart: unless-stopped
@@ -71,7 +71,7 @@ services:
       timeout: 10s
     image: pgvector/pgvector:pg16
     networks:
-      - database
+      - data
     ports:
       - 5432:5432
     restart: unless-stopped
@@ -83,7 +83,7 @@ services:
     container_name: redis
     image: redis:alpine
     networks:
-      - database
+      - data
     restart: unless-stopped
     volumes:
       - /mnt/data/docker/redis:/data
@@ -98,7 +98,7 @@ services:
       timeout: 3s
     image: valkey/valkey:alpine
     networks:
-      - database
+      - data
     ports:
       - 6379:6379
     restart: unless-stopped
