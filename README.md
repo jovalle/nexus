@@ -38,7 +38,10 @@ stacks/
 ├── media/
 │   ├── .env
 │   └── compose.yaml
-├── observability/
+├── security/
+│   ├── .env
+│   └── compose.yaml
+├── telemetry/
 │   ├── .env
 │   └── compose.yaml
 ```
@@ -94,7 +97,7 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), w
 * 📦 [Unpackerr](https://github.com/htpcjunkie/unpackerr) – Archive automation tool; watches completed transfers, extracts archives and returns processed items to your client.
 * 🧙 [Wizarr](https://github.com/wizarrrr/wizarr) – Automated invitation and onboarding system for Plex, Jellyfin and Emby; simplifies user invites and guides them through setup.
 
-### 📋 Observability
+### 📋 Telemetry
 
 * 🔍 [Beszel](https://www.beszel.dev/) – Lightweight server monitoring.
 * 📊 [Grafana](https://grafana.com) – Visualizations & dashboards for metrics.

@@ -1,65 +1,4 @@
-networks:
-  database:
-    external: true
-  security:
-    driver: bridge
-    name: security
 services:
-  authentik:
-    command: server
-    container_name: authentik
-    environment:
-      AUTHENTIK_ERROR_REPORTING__ENABLED: false
-      AUTHENTIK_LOG_LEVEL: info
-      AUTHENTIK_POSTGRESQL__HOST: postgres
-      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_DATABASE:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD:?authentik db password is not set}
-      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_DB_USERNAME:-authentik}
-      AUTHENTIK_REDIS__HOST: valkey
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key is not set}
-      TZ: America/New_York
-    image: ghcr.io/goauthentik/server
-    labels:
-      traefik.enable: true
-      traefik.http.routers.authentik.entrypoints: websecure
-      traefik.http.routers.authentik.rule: Host(`auth.${DOMAIN:?no domain defined}`)
-      traefik.http.routers.authentik.service: authentik
-      traefik.http.routers.authentik.tls: true
-      traefik.http.services.authentik.loadbalancer.server.port: 9000
-      traefik.http.services.authentik.loadbalancer.server.scheme: http
-    networks:
-      - database
-      - security
-    ports:
-      - 9000:9000
-      - 9443:9443
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/authentik/media:/media
-      - /mnt/data/docker/authentik/templates:/templates
-  authentik-worker:
-    command: worker
-    container_name: authentik-worker
-    depends_on:
-      - authentik
-    environment:
-      AUTHENTIK_ERROR_REPORTING__ENABLED: false
-      AUTHENTIK_POSTGRESQL__HOST: postgres
-      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_DATABASE:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD:?authentik db password is not set}
-      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_DB_USERNAME:-authentik}
-      AUTHENTIK_REDIS__HOST: valkey
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key is not set}
-      TZ: America/New_York
-    image: ghcr.io/goauthentik/server
-    networks:
-      - security
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/data/docker/authentik/certs:/certs
-      - /mnt/data/docker/authentik/media:/media
-      - /mnt/data/docker/authentik/templates:/templates
   crowdsec:
     cap_add:
       - NET_ADMIN
@@ -76,11 +15,11 @@ services:
       homepage.widget.fields: '["alerts", "bans"]'
       homepage.widget.password: ${CROWDSEC_LAPI_KEY:?crowdsec lapi key is not set}
       homepage.widget.type: crowdsec
-      homepage.widget.url: http://192.168.31.4:8080
+      homepage.widget.url: http://${HOST_IP:?no host ip defined}:8080
       homepage.widget.username: localhost
     network_mode: host
     restart: unless-stopped
     volumes:
       - /var/log:/var/log:ro
-      - /mnt/data/docker/crowdsec/data:/var/lib/crowdsec/data
-      - /mnt/data/docker/crowdsec/config:/etc/crowdsec
+      - ${DATA_PATH:?data path not defined}/crowdsec/data:/var/lib/crowdsec/data
+      - ${DATA_PATH:?data path not defined}/crowdsec/config:/etc/crowdsec

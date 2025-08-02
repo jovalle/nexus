@@ -1,18 +1,13 @@
 networks:
-  app:
+  app_default:
     external: true
   core:
     driver: bridge
-    name: core
-  data:
+  data_default:
     external: true
-  media:
+  media_default:
     external: true
-  observability:
-    external: true
-  security:
-    external: true
-  utility:
+  telemetry_default:
     external: true
 services:
   adguard:
@@ -50,8 +45,8 @@ services:
       - 6666:6060/tcp
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/adguard/conf:/opt/adguardhome/conf
-      - /mnt/data/docker/adguard/work:/opt/adguardhome/work
+      - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
+      - ${DATA_PATH:?data path not defined}/adguard/work:/opt/adguardhome/work
   docker-socket-proxy:
     container_name: proxy
     environment:
@@ -74,18 +69,16 @@ services:
       traefik.enable: true
       traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN:?no domain defined}`)
     networks:
+      - app_default
       - core
-      - data
-      - media
-      - observability
-      - security
-      - app
-      - utility
+      - data_default
+      - media_default
+      - telemetry_default
     ports:
       - 3001:3000
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/homepage:/app/config
+      - ${DATA_PATH:?data path not defined}/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
   portainer:
     command: -H unix:///var/run/docker.sock --admin-password "${PORTAINER_ADMIN_PASSWORD_HASH:?password hash not defined}"
@@ -111,7 +104,7 @@ services:
       - 9999:9000
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/portainer:/data
+      - ${DATA_PATH:?data path not defined}/portainer:/data
       - /var/run/docker.sock:/var/run/docker.sock
   traefik:
     command:
@@ -146,7 +139,7 @@ services:
       homepage.group: Core
       homepage.href: https://traefik.${DOMAIN:?no domain defined}
       homepage.icon: traefik
-      homepage.name: Traefik
+      homepage.name: Traefik (Nexus)
       homepage.widget.type: traefik
       homepage.widget.url: http://traefik:8080
       traefik.enable: true
@@ -155,38 +148,36 @@ services:
       traefik.http.routers.dashboard.service: api@internal
       traefik.http.routers.dashboard.tls: true
     networks:
+      - app_default
       - core
-      - data
-      - media
-      - observability
-      - security
-      - app
-      - utility
+      - data_default
+      - media_default
+      - telemetry_default
     ports:
       - 8081:8080
       - 8443:443
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/letsencrypt:/letsencrypt
+      - ${DATA_PATH:?data path not defined}/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
   watchtower:
     container_name: watchtower
     environment:
       WATCHTOWER_CLEANUP: true
       WATCHTOWER_DEBUG: true
-      WATCHTOWER_SCHEDULE: 0 0 4 * * *
       WATCHTOWER_HTTP_API_METRICS: true
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
+      WATCHTOWER_SCHEDULE: 0 0 4 * * *
+    image: containrrr/watchtower
     labels:
-      homepage.description:
+      homepage.description: null
       homepage.group: Core
       homepage.icon: watchtower
       homepage.name: Watchtower
+      homepage.widget.fields: '["containers_scanned", "containers_updated", "containers_failed"]'
+      homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
       homepage.widget.type: watchtower
       homepage.widget.url: http://watchtower:8080
-      homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
-      homepage.widget.fields: '["containers_scanned", "containers_updated", "containers_failed"]'
-    image: containrrr/watchtower
     networks:
       - core
     restart: unless-stopped

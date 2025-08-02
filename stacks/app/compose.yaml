@@ -1,208 +1,25 @@
-networks:
-  app:
-    driver: bridge
-    name: app
-  data:
-    external: true
 services:
-  immich:
-    container_name: immich
+  code-server:
+    container_name: code-server
     environment:
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
-      DB_HOSTNAME: postgres
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
-      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
-      IMMICH_VERSION: ${IMMICH_VERSION:-release}
-      NODE_ENV: production
-      REDIS_DBINDEX: 0
-      REDIS_HOSTNAME: redis
-      REDIS_PORT: 6379
-      UPLOAD_LOCATION: /usr/src/app/upload
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    labels:
-      homepage.description: Photo management and backup
-      homepage.group: Apps
-      homepage.href: https://photos.${DOMAIN:?no domain defined}
-      homepage.icon: immich
-      homepage.name: Immich
-      homepage.widget.key: ${IMMICH_API_KEY:-}
-      homepage.widget.type: immich
-      homepage.widget.url: http://immich:2283
-      homepage.widget.version: 2
-      traefik.enable: true
-      traefik.http.routers.immich.rule: Host(`immich.${DOMAIN:?no domain defined}`) || Host(`photos.${DOMAIN:?no domain defined}`)
-    networks:
-      - app
-      - data
-    ports:
-      - 2283:2283
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/immich/upload:/usr/src/app/upload
-      - /etc/localtime:/etc/localtime:ro
-  immich-machine-learning:
-    container_name: immich-machine-learning
-    environment:
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
-      DB_HOSTNAME: postgres
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
-      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
-      IMMICH_VERSION: ${IMMICH_VERSION:-release}
-      NODE_ENV: production
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    networks:
-      - app
-      - data
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/immich/cache:/cache
-  jellyfin:
-    container_name: jellyfin
-    devices:
-      - /dev/dri
-    environment:
-      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN:?no domain defined}
+      DEFAULT_WORKSPACE: /config/workspace
       PGID: ${PGID:-1000}
-      PUID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
+      PWA_APPNAME: code-server
       TZ: ${TZ:-America/New_York}
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    image: jellyfin/jellyfin
+    image: lscr.io/linuxserver/code-server:latest
     labels:
-      homepage.description: Media Server
+      homepage.description: Code Server
       homepage.group: Apps
-      homepage.href: https://jellyfin.${DOMAIN:?no domain defined}
-      homepage.icon: jellyfin
-      homepage.name: Jellyfin
-      homepage.widget.enableNowPlaying: true
-      homepage.widget.key: ${JELLYFIN_API_KEY:-}
-      homepage.widget.streamOneStreamToTwoRows: true
-      homepage.widget.type: jellyfin
-      homepage.widget.url: http://192.168.31.4:8096
+      homepage.href: https://code-server.${DOMAIN:?no domain defined}
+      homepage.icon: code
+      homepage.name: Code Server
       traefik.enable: true
-      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN:?no domain defined}`) || Host(`tv.${DOMAIN:?no domain defined}`)
-    network_mode: host
+      traefik.http.routers.code-server.rule: Host(`vscode.${DOMAIN:?no domain defined}`)
+      traefik.http.services.code-server.loadbalancer.server.port: 8443
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/jellyfin:/config
-      - ${MEDIA_PATH:-/mnt/media}:/media:ro
-  navidrome:
-    container_name: navidrome
-    environment:
-      PGID: ${PGID:-1000}
-      PUID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
-    image: deluan/navidrome
-    labels:
-      homepage.description: Personal Music Streamer
-      homepage.group: Apps
-      homepage.href: https://navidrome.${DOMAIN:?no domain defined}
-      homepage.icon: navidrome
-      homepage.name: Navidrome
-      homepage.widget.salt: ${NAVIDROME_API_SALT:-}
-      homepage.widget.token: ${NAVIDROME_API_TOKEN:-}
-      homepage.widget.type: navidrome
-      homepage.widget.url: http://navidrome:4533
-      homepage.widget.user: ${NAVIDROME_API_USER:-}
-      traefik.enable: true
-      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN:?no domain defined}`) || Host(`music.${DOMAIN:?no domain defined}`)
-    networks:
-      - app
-    ports:
-      - 4533:4533
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/navidrome:/data
-      - /mnt/media/music:/music:ro
-  nextcloud:
-    container_name: nextcloud
-    environment:
-      MYSQL_DATABASE: ${NEXTCLOUD_DB_NAME:?nextcloud database not defined}
-      MYSQL_HOST: mariadb
-      MYSQL_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?nextcloud database password not defined}
-      MYSQL_USER: ${NEXTCLOUD_DB_USER:?nextcloud database user not defined}
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${DOMAIN:?no domain defined}"
-      REDIS_HOST: redis
-    image: nextcloud
-    labels:
-      homepage.description: Cloud storage and collaboration
-      homepage.group: Apps
-      homepage.href: https://nextcloud.${DOMAIN:?no domain defined}
-      homepage.icon: nextcloud
-      homepage.name: Nextcloud
-      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
-      homepage.widget.type: nextcloud
-      homepage.widget.url: https://nextcloud.${DOMAIN:?no domain defined}
-      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      traefik.enable: true
-      traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
-      traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
-      traefik.http.routers.nextcloud.entrypoints: websecure
-      traefik.http.routers.nextcloud.middlewares: nextcloud-dav
-      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN:?no domain defined}`) || Host(`cloud.${DOMAIN:?no domain defined}`)
-    networks:
-      - app
-      - data
-    ports:
-      - 8888:80
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/nextcloud:/var/www/html
-      - /mnt/data/nextcloud:/var/www/html/data
-  plex:
-    container_name: plex
-    devices:
-      - /dev/dri
-    environment:
-      ADVERTISE_IP: http://192.168.31.4:32400/
-      PGID: ${PGID:-1000}
-      PUID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
-      UMASK_SET: 18
-      VERSION: plexpass
-    image: plexinc/pms-docker:plexpass
-    labels:
-      homepage.description: Media Server
-      homepage.group: Apps
-      homepage.href: https://plex.${DOMAIN:?no domain defined}
-      homepage.icon: plex
-      homepage.name: Plex
-      homepage.widget.fields: '["streams", "movies", "tv", "albums"]'
-      homepage.widget.key: ${PLEX_API_KEY:-}
-      homepage.widget.type: plex
-      homepage.widget.url: http://192.168.31.4:32400
-      traefik.enable: true
-      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN:?no domain defined}`) || Host(`watchtower.${DOMAIN:?no domain defined}`)
-      traefik.http.services.plex.loadbalancer.server.port: 32400
-      traefik.http.services.plex.loadbalancer.server.url: http://127.0.0.1:32400
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/plex:/config
-      - /mnt/media:/media
-      - /dev/shm/transcode:/transcode
-  syncthing:
-    container_name: syncthing
-    image: syncthing/syncthing
-    labels:
-      homepage.description: File synchronization
-      homepage.group: Apps
-      homepage.href: https://syncthing.${DOMAIN:?no domain defined}
-      homepage.icon: syncthing
-      homepage.name: Syncthing
-      traefik.enable: true
-      traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN:?no domain defined}`)
-      traefik.http.services.syncthing.loadbalancer.server.port: 8384
-    networks:
-      - app
-    ports:
-      - 8384:8384
-      - 22000:22000/tcp
-      - 22000:22000/udp
-      - 21027:21027/udp
-    restart: unless-stopped
-    volumes:
-      - /mnt/data/docker/syncthing:/var/syncthing
-      - /mnt/data/sync:/var/syncthing/Sync
+      - ${DATA_PATH:?data path not defined}/code-server:/config
+      - ${DATA_PATH:?data path not defined}:/config/workspace/data
+      - ${DOCKGE_PATH:?dockge path not defined}:/config/workspace/dockge
+      - /var/run/docker.sock:/var/run/docker.sock

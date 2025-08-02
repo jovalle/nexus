@@ -24,5 +24,5 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/data/docker/dockge:/app/data
-      - /mnt/data/nexus/stacks:/opt/stacks
+      - ${DATA_PATH:?data path not defined}/dockge:/app/data
+      - ${DATA_PATH:?data path not defined}/nexus/stacks:/opt/stacks
