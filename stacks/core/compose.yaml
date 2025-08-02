@@ -47,6 +47,29 @@ services:
     volumes:
       - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
       - ${DATA_PATH:?data path not defined}/adguard/work:/opt/adguardhome/work
+  authelia:
+    container_name: authelia
+    image: authelia/authelia
+    labels:
+      traefik.enable: 'true'
+      traefik.http.middlewares.authelia-basic.forwardAuth.address: http://authelia:9091/api/verify?auth=basic
+      traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
+      traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader: true
+      traefik.http.middlewares.authelia.forwardAuth.address: http://authelia:9091/api/verify?rd=https://auth.${DOMAIN:?no domain defined}
+      traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
+      traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader: true
+      traefik.http.routers.authelia.entrypoints: websecure
+      traefik.http.routers.authelia.rule: Host(`auth.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.authelia.tls: true
+      traefik.http.services.authelia.loadbalancer.server.port: 9091
+    networks:
+      - core
+      - data_default
+    restart: 'unless-stopped'
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH:?data path not defined}/authelia/config:/config
   docker-socket-proxy:
     container_name: proxy
     environment:
@@ -60,6 +83,22 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  dozzle:
+    container_name: dozzle
+    environment:
+      DOZZLE_ENABLE_ACTIONS: true
+      DOZZLE_ENABLE_SHELL: true
+    image: amir20/dozzle:latest
+    labels:
+      traefik.enable: true
+      traefik.http.routers.dozzle.entrypoints: websecure
+      traefik.http.routers.dozzle.rule: Host(`dozzle.${DOMAIN:?no domain defined}`)
+    networks:
+      - core
+    ports:
+      - 8083:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   homepage:
     container_name: homepage
     environment:
@@ -144,6 +183,7 @@ services:
       homepage.widget.url: http://traefik:8080
       traefik.enable: true
       traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.middlewares: 'authelia@docker'
       traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN:?no domain defined}`)
       traefik.http.routers.dashboard.service: api@internal
       traefik.http.routers.dashboard.tls: true

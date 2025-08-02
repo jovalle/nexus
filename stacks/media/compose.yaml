@@ -16,6 +16,7 @@ services:
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
       traefik.enable: true
+      traefik.http.routers.bazarr.middlewares: authelia@docker
       traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN:?no domain defined}`) || Host(`subs.${DOMAIN:?no domain defined}`)
       traefik.http.services.bazarr.loadbalancer.server.port: 6767
     restart: unless-stopped
@@ -33,6 +34,7 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr
     labels:
       traefik.enable: true
+      traefik.http.routers.flaresolverr.middlewares: authelia@docker
       traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN:?no domain defined}`)
       traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
     restart: unless-stopped
@@ -122,6 +124,7 @@ services:
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
       traefik.enable: true
+      traefik.http.routers.lidarr.middlewares: authelia@docker
       traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN:?no domain defined}`)
       traefik.http.services.lidarr.loadbalancer.server.port: 8686
     restart: unless-stopped
@@ -146,6 +149,7 @@ services:
       homepage.widget.url: http://navidrome:4533
       homepage.widget.user: ${NAVIDROME_API_USER:-}
       traefik.enable: true
+      traefik.http.routers.navidrome.middlewares: authelia@docker
       traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN:?no domain defined}`) || Host(`music.${DOMAIN:?no domain defined}`)
       traefik.http.services.navidrome.loadbalancer.server.port: 4533
     restart: unless-stopped
@@ -213,6 +217,7 @@ services:
       homepage.icon: profilarr
       homepage.name: Profilarr
       traefik.enable: true
+      traefik.http.routers.profilarr.middlewares: authelia@docker
       traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN:?no domain defined}`)
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
     restart: unless-stopped
@@ -233,6 +238,7 @@ services:
       homepage.widget.type: prowlarr
       homepage.widget.url: http://prowlarr:9696
       traefik.enable: true
+      traefik.http.routers.prowlarr.middlewares: authelia@docker
       traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN:?no domain defined}`)
       traefik.http.services.prowlarr.loadbalancer.server.port: 9696
     restart: unless-stopped
@@ -289,6 +295,7 @@ services:
       homepage.widget.type: radarr
       homepage.widget.url: http://radarr:7878
       traefik.enable: true
+      traefik.http.routers.radarr.middlewares: authelia@docker
       traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN:?no domain defined}`)
       traefik.http.services.radarr.loadbalancer.server.port: 7878
     restart: unless-stopped
@@ -311,6 +318,7 @@ services:
       homepage.widget.type: sabnzbd
       homepage.widget.url: http://sabnzbd:8080
       traefik.enable: true
+      traefik.http.routers.sabnzbd.middlewares: authelia@docker
       traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN:?no domain defined}`)
       traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
     restart: unless-stopped
@@ -339,6 +347,7 @@ services:
       homepage.widget.type: sonarr
       homepage.widget.url: http://sonarr:8989
       traefik.enable: true
+      traefik.http.routers.sonarr.middlewares: authelia@docker
       traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN:?no domain defined}`)
       traefik.http.services.sonarr.loadbalancer.server.port: 8989
     restart: unless-stopped
