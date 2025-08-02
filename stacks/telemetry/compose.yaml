@@ -1,14 +1,10 @@
-networks:
-  observability:
-    driver: bridge
-    name: observability
 services:
   beszel:
     container_name: beszel
     image: henrygd/beszel
     labels:
       homepage.description: Lightweight server monitoring platform
-      homepage.group: Observability
+      homepage.group: Telemetry
       homepage.href: https://beszel.${DOMAIN:?no domain defined}
       homepage.icon: beszel
       homepage.name: Beszel
@@ -20,13 +16,11 @@ services:
       homepage.widget.version: 2
       traefik.enable: true
       traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN:?no domain defined}`) || Host(`systems.${DOMAIN:?no domain defined}`)
-    networks:
-      - observability
     ports:
       - 8090:8090
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/beszel/data:/beszel_data
+      - ${DATA_PATH:?data path not defined}/beszel/data:/beszel_data
   beszel-agent:
     container_name: beszel-agent
     depends_on:
@@ -39,6 +33,25 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  glances:
+    container_name: glances
+    environment:
+      - "GLANCES_OPT=-w -1"
+    image: nicolargo/glances
+    labels:
+      homepage.description: System Monitoring Tool
+      homepage.group: Telemetry
+      homepage.href: https://glances.${DOMAIN:?no domain defined}
+      homepage.icon: glances
+      homepage.name: Glances
+      traefik.enable: true
+      traefik.http.routers.glances.rule: Host(`glances.${DOMAIN:?no domain defined}`)
+      traefik.http.services.glances.loadbalancer.server.port: 61208
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
   grafana:
     container_name: grafana
     environment:
@@ -48,7 +61,7 @@ services:
     image: grafana/grafana
     labels:
       homepage.description: Metrics Visualizer
-      homepage.group: Observability
+      homepage.group: Telemetry
       homepage.href: https://grafana.${DOMAIN:?no domain defined}
       homepage.icon: grafana
       homepage.name: Grafana
@@ -59,25 +72,29 @@ services:
       homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
       traefik.enable: true
       traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN:?no domain defined}`)
-    networks:
-      - observability
-    ports:
-      - 3333:3000
+      traefik.http.services.grafana.loadbalancer.server.port: 3000
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      - /mnt/data/docker/grafana/dashboards:/var/lib/grafana/dashboards
-      - /mnt/data/docker/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ${DATA_PATH:?data path not defined}/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ${DATA_PATH:?data path not defined}/grafana/dashboards:/var/lib/grafana/dashboards
+      - ${DATA_PATH:?data path not defined}/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
   loki:
     container_name: loki
     image: grafana/loki
-    networks:
-      - observability
     ports:
-      - 3103:3100
+      - 3100:3100
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/loki:/loki
+      - ${DATA_PATH:?data path not defined}/loki:/loki
+  node-exporter:
+    command: --path.rootfs=/host
+    container_name: node-exporter
+    image: quay.io/prometheus/node-exporter
+    ports:
+      - 9100:9100
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave
   prometheus:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -92,7 +109,7 @@ services:
     image: prom/prometheus
     labels:
       homepage.description: Metrics collection
-      homepage.group: Observability
+      homepage.group: Telemetry
       homepage.href: https://prometheus.${DOMAIN:?no domain defined}
       homepage.icon: prometheus
       homepage.name: Prometheus
@@ -100,25 +117,21 @@ services:
       homepage.widget.url: http://prometheus:9090
       traefik.enable: true
       traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN:?no domain defined}`)
-    networks:
-      - observability
     ports:
       - 9090:9090
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - /mnt/data/docker/prometheus/data:/prometheus
+      - ${DATA_PATH:?data path not defined}/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ${DATA_PATH:?data path not defined}/prometheus/data:/prometheus
   promtail:
     command: -config.file=/etc/promtail/config.yml
     container_name: promtail
     environment:
       PROMTAIL_CONFIG_FILE: /etc/promtail/config.yml
     image: grafana/promtail
-    networks:
-      - observability
     restart: unless-stopped
     volumes:
-      - /mnt/data/docker/promtail/data:/var/lib/promtail/positions
-      - /mnt/data/docker/promtail/promtail-config.yaml:/etc/promtail/config.yml
+      - ${DATA_PATH:?data path not defined}/promtail/data:/var/lib/promtail/positions
+      - ${DATA_PATH:?data path not defined}/promtail/promtail-config.yaml:/etc/promtail/config.yml
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
