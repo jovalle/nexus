@@ -44,6 +44,10 @@ services:
       homepage.href: https://glances.${DOMAIN:?no domain defined}
       homepage.icon: glances
       homepage.name: Glances
+      homepage.widget.metric: info
+      homepage.widget.type: glances
+      homepage.widget.url: http://glances:61208
+      homepage.widget.version: 4
       traefik.enable: true
       traefik.http.routers.glances.rule: Host(`glances.${DOMAIN:?no domain defined}`)
       traefik.http.services.glances.loadbalancer.server.port: 61208
