@@ -25,4 +25,4 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATA_PATH:?data path not defined}/dockge:/app/data
-      - ${DATA_PATH:?data path not defined}/nexus/stacks:/opt/stacks
+      - ${STACKS_PATH:?stacks path not defined}:/opt/stacks

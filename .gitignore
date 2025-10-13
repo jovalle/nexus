@@ -5,3 +5,4 @@
 data/dockge.db
 data/dockge.db-shm
 data/dockge.db-wal
+docker/
