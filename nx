@@ -1,0 +1,798 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$SCRIPT_DIR"
+STACKS_DIR="$ROOT_DIR/stacks"
+BACKUP_DIR="$ROOT_DIR/backups"
+
+if [[ -n "${COMPOSE_BIN:-}" ]]; then
+  # shellcheck disable=SC2206
+  COMPOSE_CMD=( ${COMPOSE_BIN} )
+else
+  COMPOSE_CMD=(docker compose)
+fi
+
+BLUE="\033[0;34m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+RED="\033[0;31m"
+NC="\033[0m"
+
+declare -a STACKS=()
+declare -a TARGET_STACKS=()
+
+COMMAND=""
+STACK_ARG=""
+FOLLOW_LOGS=0
+BACKUP_FILE=""
+SSH_HOST=""
+ASSUME_YES=0
+
+COMMAND_ORDER=(
+  help
+  alias
+  check-env
+  list-stacks
+  list-services
+  status
+  pull
+  start
+  stop
+  restart
+  dev-mode
+  logs
+  tail
+  health
+  quick-status
+  quick-restart
+  cleanup
+  cleanup-aggressive
+  backup
+  list-backups
+  restore
+  update
+  ssh
+)
+
+declare -A COMMAND_DESCRIPTIONS=(
+  [help]="Show this help message and highlight common examples"
+  [alias]="Persist the nx alias into your shell profile"
+  [check-env]="Verify stack directories and compose manifests exist"
+  [list-stacks]="Print discovered stacks in dependency order"
+  [list-services]="Show Compose services for each stack (and root)"
+  [status]="Display docker compose ps output"
+  [pull]="Pull container images for one or all stacks"
+  [start]="Bring stacks up (uses dependency-friendly order)"
+  [stop]="Bring stacks down"
+  [restart]="Restart stacks (down + up)"
+  [dev-mode]="Run stacks in attached mode for iterative work"
+  [logs]="Display recent logs; combine with --follow to stream"
+  [tail]="Stream logs from all stacks simultaneously"
+  [health]="Check container health information"
+  [quick-status]="Show raw docker ps output"
+  [quick-restart]="Use docker compose restart (no dependency ordering)"
+  [cleanup]="Prune stopped containers, images, networks, and optional volumes"
+  [cleanup-aggressive]="Cleanup plus prune all unused images (with confirmation)"
+  [backup]="Archive stack definitions (and optional named volume snapshot)"
+  [list-backups]="List files in the backups directory"
+  [restore]="Extract a backup archive back into the repo"
+  [update]="Pull images then restart stacks"
+  [ssh]="Open an SSH session to the host and drop into the project directory"
+)
+
+log_info() { printf "${BLUE}%s${NC}\n" "$*"; }
+log_success() { printf "${GREEN}%s${NC}\n" "$*"; }
+log_warn() { printf "${YELLOW}%s${NC}\n" "$*"; }
+log_error() { printf "${RED}%s${NC}\n" "$*" >&2; }
+
+require_command() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    log_error "Missing required command: $cmd"
+    exit 1
+  fi
+}
+
+ensure_compose() {
+  if ! "${COMPOSE_CMD[@]}" version >/dev/null 2>&1; then
+    log_error "Unable to run '${COMPOSE_CMD[*]}'. Install Docker Compose plugin."
+    exit 1
+  fi
+}
+
+discover_stacks() {
+  STACKS=()
+  [[ -d "$STACKS_DIR/data" ]] && STACKS+=("data")
+
+  local dir
+  local -a others=()
+  while IFS= read -r -d '' dir; do
+    local base
+    base="$(basename "$dir")"
+    case "$base" in
+      data|core) continue ;;
+      *) others+=("$base") ;;
+    esac
+  done < <(find "$STACKS_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null || true)
+
+  if ((${#others[@]})); then
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && STACKS+=("$name")
+    done < <(printf '%s\n' "${others[@]}" | sort)
+  fi
+
+  [[ -d "$STACKS_DIR/core" ]] && STACKS+=("core")
+}
+
+stack_exists() {
+  local needle="$1"
+  for stack in "${STACKS[@]}"; do
+    if [[ "$stack" == "$needle" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_stack_directories() {
+  discover_stacks
+  if ((${#STACKS[@]} == 0)); then
+    log_error "No stack directories found in $STACKS_DIR"
+    exit 1
+  fi
+}
+
+select_stacks() {
+  ensure_stack_directories
+  if [[ -n "$STACK_ARG" ]]; then
+    if ! stack_exists "$STACK_ARG"; then
+      log_error "Unknown stack '$STACK_ARG'. Available: ${STACKS[*]}"
+      exit 1
+    fi
+    TARGET_STACKS=("$STACK_ARG")
+  else
+    TARGET_STACKS=("${STACKS[@]}")
+  fi
+}
+
+compose_within_stack() {
+  local stack="$1"; shift
+  (
+    cd "$STACKS_DIR/$stack"
+    "${COMPOSE_CMD[@]}" "$@"
+  )
+}
+
+timestamp() {
+  date +%Y%m%d_%H%M%S
+}
+
+confirm() {
+  local prompt="$1"
+  if (( ASSUME_YES )); then
+    return 0
+  fi
+  read -r -p "$prompt [y/N]: " reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+determine_profile_files() {
+  local shell_name="$1"
+  case "$shell_name" in
+    bash)
+      printf '%s\n' "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"
+      ;;
+    zsh)
+      printf '%s\n' "$HOME/.zshrc" "$HOME/.zprofile"
+      ;;
+    fish)
+      printf '%s\n' "$HOME/.config/fish/config.fish"
+      ;;
+    *)
+      printf '%s\n' "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.config/fish/config.fish"
+      ;;
+  esac
+}
+
+persist_alias_block() {
+  local target_file="$1"
+  local block="$2"
+  local start_marker="$3"
+  local end_marker="$4"
+
+  local target_dir
+  target_dir="$(dirname "$target_file")"
+  mkdir -p "$target_dir"
+
+  local tmp
+  tmp="$(mktemp)"
+
+  if [[ -f "$target_file" ]]; then
+    awk -v start="$start_marker" -v end="$end_marker" '
+      $0 == start { in_block=1; next }
+      in_block && $0 == end { in_block=0; next }
+      !in_block { print }
+    ' "$target_file" >"$tmp"
+  else
+    : >"$tmp"
+  fi
+
+  if [[ -s "$tmp" ]]; then
+    if [[ "$(tail -c 1 "$tmp" 2>/dev/null)" != $'\n' ]]; then
+      printf '\n' >>"$tmp"
+    fi
+  fi
+
+  {
+    printf '%s\n' "$start_marker"
+    printf '%s\n' "$block"
+    printf '%s\n' "$end_marker"
+  } >>"$tmp"
+
+  local changed=1
+  if [[ -f "$target_file" ]]; then
+    if cmp -s "$target_file" "$tmp"; then
+      changed=0
+    fi
+  fi
+
+  mv "$tmp" "$target_file"
+  echo $((changed))
+}
+
+print_usage() {
+  cat <<EOF
+Usage: $(basename "$0") <command> [options]
+
+Commands:
+EOF
+  for cmd in "${COMMAND_ORDER[@]}"; do
+    printf "  ${GREEN}%-18s${NC} %s\n" "$cmd" "${COMMAND_DESCRIPTIONS[$cmd]}"
+  done
+  cat <<'EOF'
+
+Common options:
+  -s, --stack <name>     Target a single stack (default: all stacks)
+  -f, --follow           Follow logs (only for logs/tail)
+  -F, --file <archive>   Backup archive for restore
+  -H, --host <hostname>  SSH host (default: nexus)
+  -y, --yes              Assume "yes" for confirmations
+  -h, --help             Show this help message
+
+Examples:
+  nx start                    # Start every stack
+  nx status --stack core      # Inspect the core stack only
+  nx logs --stack data -f     # Tail data stack logs
+  nx backup                   # Archive all stack configurations
+  nx restore --file stacks_config_20240101_120000.tar.gz
+EOF
+}
+
+cmd_help() {
+  print_usage
+}
+
+cmd_alias() {
+  local alias_target="$ROOT_DIR/nx"
+  local shell_name
+  shell_name="$(basename "${SHELL:-}")"
+  if [[ -z "$shell_name" ]]; then
+    shell_name="unknown"
+  fi
+
+  log_info "Persisting nx alias for shell: $shell_name"
+
+  local -a candidate_files=()
+  mapfile -t candidate_files < <(determine_profile_files "$shell_name")
+  if ((${#candidate_files[@]} == 0)); then
+    mapfile -t candidate_files < <(determine_profile_files "fallback")
+  fi
+
+  local start_marker="# >>> nexus nx alias >>>"
+  local end_marker="# <<< nexus nx alias <<<"
+
+  local -a updated_files=()
+  local -a already_configured=()
+  declare -A processed=()
+
+  for file in "${candidate_files[@]}"; do
+    [[ -z "$file" ]] && continue
+    if [[ -n "${processed[$file]:-}" ]]; then
+      continue
+    fi
+    processed["$file"]=1
+
+    local block=""
+    if [[ "$file" == "$HOME/.config/fish/config.fish" ]]; then
+      printf -v block 'function nx --wraps "%s" --description "Nexus orchestrator"\n  "%s" $argv\nend' "$alias_target" "$alias_target"
+    else
+      printf -v block 'alias nx="%s"' "$alias_target"
+    fi
+
+    local changed
+    changed="$(persist_alias_block "$file" "$block" "$start_marker" "$end_marker")"
+    if [[ "$changed" == "1" ]]; then
+      updated_files+=("$file")
+    else
+      already_configured+=("$file")
+    fi
+  done
+
+  if ((${#updated_files[@]})); then
+    for file in "${updated_files[@]}"; do
+      log_success "Alias updated in $file"
+    done
+  fi
+  if ((${#already_configured[@]})); then
+    for file in "${already_configured[@]}"; do
+      log_info "Alias already configured in $file"
+    done
+  fi
+
+  local primary=""
+  if ((${#candidate_files[@]})); then
+    primary="${candidate_files[0]}"
+  fi
+
+  if [[ -n "$primary" ]]; then
+    log_info "Reload your shell or run: source $primary"
+  else
+    log_warn "No shell profile files detected; please add the alias manually."
+  fi
+}
+
+cmd_check_env() {
+  ensure_stack_directories
+  log_info "Checking stack directories and compose manifests..."
+  local stack missing=0
+  for stack in "${STACKS[@]}"; do
+    local stack_dir="$STACKS_DIR/$stack"
+    local compose_file=""
+    if [[ -f "$stack_dir/compose.yaml" ]]; then
+      compose_file="$stack_dir/compose.yaml"
+    elif [[ -f "$stack_dir/docker-compose.yml" ]]; then
+      compose_file="$stack_dir/docker-compose.yml"
+    else
+      log_error "✗ $stack_dir (missing compose.yaml or docker-compose.yml)"
+      missing=1
+      continue
+    fi
+    log_success "✓ $stack_dir ($(basename "$compose_file"))"
+  done
+  if (( missing )); then
+    exit 1
+  fi
+}
+
+cmd_list_stacks() {
+  ensure_stack_directories
+  log_info "Discovered stacks (execution order):"
+  for stack in "${STACKS[@]}"; do
+    printf "  %s\n" "$stack"
+  done
+}
+
+cmd_list_services() {
+  ensure_compose
+  ensure_stack_directories
+  local stack
+  if [[ -f "$ROOT_DIR/compose.yaml" ]]; then
+    log_info "root stack (./compose.yaml):"
+    if ! "${COMPOSE_CMD[@]}" -f "$ROOT_DIR/compose.yaml" config --services 2>/dev/null; then
+      log_warn "  Unable to read services from root compose.yaml"
+    fi
+    echo ""
+  fi
+  for stack in "${STACKS[@]}"; do
+    log_info "$stack stack:"
+    if ! compose_within_stack "$stack" config --services 2>/dev/null; then
+      log_warn "  Unable to parse services for $stack"
+    fi
+    echo ""
+  done
+}
+
+cmd_status() {
+  ensure_compose
+  select_stacks
+  log_info "Stack Status Overview"
+  printf "${YELLOW}====================${NC}\n"
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    log_info "$stack:"
+    if ! compose_within_stack "$stack" ps --format table; then
+      log_error "Failed to get status for $stack"
+    fi
+    echo ""
+  done
+}
+
+cmd_pull() {
+  ensure_compose
+  select_stacks
+  local stack
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Pulling images for $STACK_ARG..."
+    compose_within_stack "$STACK_ARG" pull
+  else
+    log_info "Pulling latest images for all stacks..."
+    for stack in "${TARGET_STACKS[@]}"; do
+      log_info "  → $stack"
+      if ! compose_within_stack "$stack" pull; then
+        log_error "  Failed to pull $stack"
+      fi
+    done
+  fi
+}
+
+cmd_start() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Starting $STACK_ARG..."
+    compose_within_stack "$STACK_ARG" up -d --remove-orphans
+    log_success "$STACK_ARG stack started"
+    return
+  fi
+  log_info "Starting all stacks..."
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    log_info "  → $stack"
+    if compose_within_stack "$stack" up -d --remove-orphans; then
+      log_success "  $stack started"
+    else
+      log_error "  Failed to start $stack"
+    fi
+    sleep 2
+  done
+}
+
+cmd_stop() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Stopping $STACK_ARG..."
+    compose_within_stack "$STACK_ARG" down
+    log_success "$STACK_ARG stack stopped"
+    return
+  fi
+  log_info "Stopping all stacks..."
+  for (( idx=${#TARGET_STACKS[@]}-1; idx>=0; idx-- )); do
+    local stack="${TARGET_STACKS[$idx]}"
+    log_info "  → $stack"
+    if compose_within_stack "$stack" down; then
+      log_success "  $stack stopped"
+    else
+      log_error "  Failed to stop $stack"
+    fi
+  done
+}
+
+cmd_restart() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Restarting $STACK_ARG..."
+    compose_within_stack "$STACK_ARG" down
+    compose_within_stack "$STACK_ARG" up -d --remove-orphans
+    log_success "$STACK_ARG stack restarted"
+    return
+  fi
+  log_info "Restarting all stacks..."
+  cmd_stop
+  cmd_start
+}
+
+cmd_logs() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "$STACK_ARG stack logs:"
+    if (( FOLLOW_LOGS )); then
+      compose_within_stack "$STACK_ARG" logs -f
+    else
+      compose_within_stack "$STACK_ARG" logs --tail=50
+    fi
+    return
+  fi
+  log_info "Recent logs from all stacks:"
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    log_info "$stack stack logs:"
+    compose_within_stack "$stack" logs --tail=20 || log_warn "  Failed to read logs for $stack"
+    echo ""
+  done
+}
+
+cmd_tail() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    FOLLOW_LOGS=1
+    cmd_logs
+    return
+  fi
+  log_info "Streaming logs for all stacks (Ctrl+C to exit)..."
+  local stack
+  declare -a pids=()
+  trap 'for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done' INT TERM
+  for stack in "${TARGET_STACKS[@]}"; do
+    (
+      printf "${YELLOW}[%s]${NC}\n" "$stack"
+      compose_within_stack "$stack" logs -f --tail=10
+    ) &
+    pids+=($!)
+    sleep 1
+  done
+  wait "${pids[@]}"
+  trap - INT TERM
+}
+
+cmd_health() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "$STACK_ARG stack health:"
+    if ! compose_within_stack "$STACK_ARG" ps --format table --filter "status=running" | grep -E "(healthy|unhealthy)" || true; then
+      echo "No health checks configured"
+    fi
+    return
+  fi
+  log_info "Health Check Overview"
+  printf "${YELLOW}====================${NC}\n"
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    log_info "$stack stack health:"
+    if ! compose_within_stack "$stack" ps --format table --filter "status=running" | grep -E "(healthy|unhealthy)" || true; then
+      echo "No health checks configured"
+    fi
+    echo ""
+  done
+}
+
+cmd_cleanup() {
+  require_command docker
+  log_info "Cleaning up Docker resources..."
+  log_info "Removing stopped containers..."
+  docker container prune -f
+  log_info "Removing unused networks..."
+  docker network prune -f
+  log_info "Removing unused images..."
+  docker image prune -f
+  if confirm "Remove unused volumes? This may delete data!"; then
+    docker volume prune -f
+  else
+    log_warn "Skipping volume cleanup"
+  fi
+  log_success "Cleanup completed"
+}
+
+cmd_cleanup_aggressive() {
+  require_command docker
+  log_warn "WARNING: This will remove ALL unused images!"
+  if ! confirm "Continue with aggressive cleanup?"; then
+    log_warn "Aborting aggressive cleanup"
+    return
+  fi
+  cmd_cleanup
+  log_info "Removing all unused images..."
+  docker image prune -a -f
+  log_success "Aggressive cleanup completed"
+}
+
+cmd_backup() {
+  require_command tar
+  mkdir -p "$BACKUP_DIR"
+  local stamp
+  stamp="$(timestamp)"
+  if [[ -n "$STACK_ARG" ]]; then
+    ensure_stack_directories
+    if ! stack_exists "$STACK_ARG"; then
+      log_error "Unknown stack '$STACK_ARG'"
+      exit 1
+    fi
+    log_info "Backing up $STACK_ARG stack configuration..."
+    tar -czf "$BACKUP_DIR/${STACK_ARG}_config_${stamp}.tar.gz" -C "$STACKS_DIR" "$STACK_ARG"/
+    log_success "Backup stored at $BACKUP_DIR/${STACK_ARG}_config_${stamp}.tar.gz"
+    return
+  fi
+  log_info "Backing up all stack configurations..."
+  tar -czf "$BACKUP_DIR/stacks_config_${stamp}.tar.gz" -C "$ROOT_DIR" stacks/
+  log_info "Attempting to snapshot named volume 'dockge_backup'..."
+  if docker run --rm -v dockge_backup:/backup -v "$BACKUP_DIR":/host alpine sh -c "tar -czf /host/volumes_${stamp}.tar.gz -C /backup ." 2>/dev/null; then
+    log_success "Volume snapshot created: $BACKUP_DIR/volumes_${stamp}.tar.gz"
+  else
+    log_warn "No named volume 'dockge_backup' found or backup failed"
+  fi
+  log_success "Backup completed: $BACKUP_DIR/stacks_config_${stamp}.tar.gz"
+}
+
+cmd_list_backups() {
+  if [[ ! -d "$BACKUP_DIR" ]]; then
+    log_warn "No backups found"
+    return
+  fi
+  log_info "Available backups:"
+  ls -la "$BACKUP_DIR"
+}
+
+cmd_restore() {
+  require_command tar
+  if [[ -z "$BACKUP_FILE" ]]; then
+    log_error "Please specify --file <backup_archive>"
+    exit 1
+  fi
+  local archive="$BACKUP_DIR/$BACKUP_FILE"
+  if [[ ! -f "$archive" ]]; then
+    log_error "Backup file not found: $archive"
+    exit 1
+  fi
+  log_warn "Restoring from $BACKUP_FILE will overwrite current stack configs."
+  if ! confirm "Continue with restore?"; then
+    log_warn "Restore aborted"
+    return
+  fi
+  tar -xzf "$archive" -C "$ROOT_DIR"
+  log_success "Restore completed from $BACKUP_FILE"
+}
+
+cmd_update() {
+  cmd_pull
+  cmd_restart
+}
+
+cmd_dev_mode() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Starting $STACK_ARG stack in development mode (attached)..."
+    log_warn "Press Ctrl+C to stop"
+    compose_within_stack "$STACK_ARG" up
+    return
+  fi
+  log_info "Starting all stacks in development mode..."
+  log_warn "Press Ctrl+C to stop all stacks"
+  declare -a pids=()
+  trap 'for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done' INT TERM
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    (
+      log_info "[$stack] attaching..."
+      cd "$STACKS_DIR/$stack"
+      "${COMPOSE_CMD[@]}" up
+    ) &
+    pids+=($!)
+    sleep 3
+  done
+  wait "${pids[@]}"
+  trap - INT TERM
+}
+
+cmd_quick_status() {
+  require_command docker
+  docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -v NAMES | sort || log_warn "No containers running"
+}
+
+cmd_quick_restart() {
+  ensure_compose
+  select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    log_info "Quick restarting $STACK_ARG..."
+    compose_within_stack "$STACK_ARG" restart
+    log_success "$STACK_ARG quick restart completed"
+    return
+  fi
+  log_info "Quick restarting all stacks..."
+  declare -a pids=()
+  local stack
+  for stack in "${TARGET_STACKS[@]}"; do
+    (
+      compose_within_stack "$stack" restart
+    ) &
+    pids+=($!)
+  done
+  wait "${pids[@]}"
+  log_success "Quick restart completed"
+}
+
+dispatch_command() {
+  local cmd="$1"
+  shift || true
+  case "$cmd" in
+    help) cmd_help ;;
+    alias) cmd_alias ;;
+    check-env) cmd_check_env ;;
+    list-stacks) cmd_list_stacks ;;
+    list-services) cmd_list_services ;;
+    status) cmd_status ;;
+    pull) cmd_pull ;;
+    start) cmd_start ;;
+    stop) cmd_stop ;;
+    restart) cmd_restart ;;
+    dev-mode) cmd_dev_mode ;;
+    logs) cmd_logs ;;
+    tail) cmd_tail ;;
+    health) cmd_health ;;
+    quick-status) cmd_quick_status ;;
+    quick-restart) cmd_quick_restart ;;
+    cleanup) cmd_cleanup ;;
+    cleanup-aggressive) cmd_cleanup_aggressive ;;
+    backup) cmd_backup ;;
+    list-backups) cmd_list_backups ;;
+    restore) cmd_restore ;;
+    update) cmd_update ;;
+    *) log_error "Unknown command '$cmd'"; print_usage; exit 1 ;;
+  esac
+}
+
+parse_args() {
+  local positional=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -s|--stack)
+        STACK_ARG="${2:-}"
+        if [[ -z "$STACK_ARG" ]]; then
+          log_error "--stack requires an argument"
+          exit 1
+        fi
+        shift 2
+        ;;
+      -f|--follow)
+        FOLLOW_LOGS=1
+        shift
+        ;;
+      -F|--file)
+        BACKUP_FILE="${2:-}"
+        if [[ -z "$BACKUP_FILE" ]]; then
+          log_error "--file requires an argument"
+          exit 1
+        fi
+        shift 2
+        ;;
+      -H|--host)
+        SSH_HOST="${2:-}"
+        if [[ -z "$SSH_HOST" ]]; then
+          log_error "--host requires an argument"
+          exit 1
+        fi
+        shift 2
+        ;;
+      -y|--yes)
+        ASSUME_YES=1
+        shift
+        ;;
+      -h|--help)
+        cmd_help
+        exit 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      -*)
+        log_error "Unknown option: $1"
+        print_usage
+        exit 1
+        ;;
+      *)
+        positional+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if (( ${#positional[@]} > 0 )); then
+    COMMAND="${positional[0]}"
+  else
+    COMMAND="help"
+  fi
+}
+
+main() {
+  parse_args "$@"
+  dispatch_command "$COMMAND"
+}
+
+main "$@"
