@@ -739,6 +739,14 @@ parse_args() {
         fi
         shift 2
         ;;
+      --stack=*)
+        STACK_ARG="${1#*=}"
+        if [[ -z "$STACK_ARG" ]]; then
+          log_error "--stack requires an argument"
+          exit 1
+        fi
+        shift
+        ;;
       -f|--follow)
         FOLLOW_LOGS=1
         shift
@@ -751,6 +759,14 @@ parse_args() {
         fi
         shift 2
         ;;
+      --file=*)
+        BACKUP_FILE="${1#*=}"
+        if [[ -z "$BACKUP_FILE" ]]; then
+          log_error "--file requires an argument"
+          exit 1
+        fi
+        shift
+        ;;
       -H|--host)
         SSH_HOST="${2:-}"
         if [[ -z "$SSH_HOST" ]]; then
@@ -758,6 +774,14 @@ parse_args() {
           exit 1
         fi
         shift 2
+        ;;
+      --host=*)
+        SSH_HOST="${1#*=}"
+        if [[ -z "$SSH_HOST" ]]; then
+          log_error "--host requires an argument"
+          exit 1
+        fi
+        shift
         ;;
       -y|--yes)
         ASSUME_YES=1
