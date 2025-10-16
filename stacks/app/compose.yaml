@@ -1,26 +1,29 @@
 services:
-  code-server:
-    container_name: code-server
-    environment:
-      DEFAULT_WORKSPACE: /config/workspace
-      PGID: ${PGID:-1000}
-      PUID: ${PUID:-1000}
-      PWA_APPNAME: code-server
-      TZ: ${TZ:-America/New_York}
-    image: lscr.io/linuxserver/code-server:latest
+  excalidraw:
+    container_name: excalidraw
+    image: excalidraw/excalidraw
     labels:
-      homepage.description: Code Server
-      homepage.group: Apps
-      homepage.href: https://code-server.${DOMAIN:?no domain defined}
-      homepage.icon: code
-      homepage.name: Code Server
       traefik.enable: true
-      traefik.http.routers.code-server.middlewares: authelia@docker
-      traefik.http.routers.code-server.rule: Host(`vscode.${DOMAIN:?no domain defined}`)
-      traefik.http.services.code-server.loadbalancer.server.port: 8443
+      traefik.http.routers.excalidraw.rule: Host(`excalidraw.${DOMAIN:?no domain defined}`) || Host(`draw.${DOMAIN}`)
+      traefik.http.services.excalidraw.loadbalancer.server.port: 80
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/code-server:/config
-      - ${DATA_PATH:?data path not defined}:/config/workspace/data
-      - ${DOCKGE_PATH:?dockge path not defined}:/config/workspace/dockge
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATA_PATH:?data path not defined}/excalidraw:/data
+  mytabs:
+    container_name: mytabs
+    image: louislam/its-mytabs:1
+    labels:
+      traefik.enable: true
+      traefik.http.routers.mytabs.rule: Host(`mytabs.${DOMAIN:?no domain defined}`) || Host(`tabs.${DOMAIN:?no domain defined}`)
+      traefik.http.services.mytabs.loadbalancer.server.port: 47777
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/mytabs:/app/data
+  omni-tools:
+    container_name: omni-tools
+    image: iib0011/omni-tools
+    labels:
+      traefik.enable: true
+      traefik.http.routers.omni-tools.rule: Host(`omni-tools.${DOMAIN}`) || Host(`tools.${DOMAIN}`)
+      traefik.http.services.omni-tools.loadbalancer.server.port: 80
+    restart: unless-stopped

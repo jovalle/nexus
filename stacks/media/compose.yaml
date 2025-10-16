@@ -17,7 +17,7 @@ services:
       homepage.widget.url: http://bazarr:6767
       traefik.enable: true
       traefik.http.routers.bazarr.middlewares: authelia@docker
-      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN:?no domain defined}`) || Host(`subs.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN}`) || Host(`subs.${DOMAIN})
       traefik.http.services.bazarr.loadbalancer.server.port: 6767
     restart: unless-stopped
     volumes:
@@ -34,8 +34,7 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr
     labels:
       traefik.enable: true
-      traefik.http.routers.flaresolverr.middlewares: authelia@docker
-      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN}`)
       traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
     restart: unless-stopped
   gluetun:
@@ -57,15 +56,11 @@ services:
     labels:
       homepage.description: VPN client for containers
       homepage.group: Media
-      homepage.href: https://gluetun.${DOMAIN:?no domain defined}/v1/publicip/ip
       homepage.icon: gluetun
       homepage.name: Gluetun
       homepage.widget.fields: '["public_ip", "region", "country"]'
       homepage.widget.type: gluetun
       homepage.widget.url: http://gluetun:8000
-      traefik.enable: true
-      traefik.http.routers.gluetun.rule: Host(`gluetun.${DOMAIN:?no domain defined}`)
-      traefik.http.services.gluetun.loadbalancer.server.port: 8000
     ports:
       - 6881:6881
       - 6881:6881/udp
@@ -73,37 +68,35 @@ services:
     restart: always
     volumes:
       - /dev/net/tun:/dev/net/tun
-      - ${DATA_PATH:?data path not defined}/gluetun:/gluetun
+      - ${DATA_PATH}/gluetun:/gluetun
   jellyfin:
     container_name: jellyfin
     devices:
       - /dev/dri
     environment:
       <<: *a1
-      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN:?no domain defined}
-    extra_hosts:
-      - host.docker.internal:host-gateway
+      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN}
     image: jellyfin/jellyfin
     labels:
       homepage.description: Media Server
       homepage.group: Media
-      homepage.href: https://jellyfin.${DOMAIN:?no domain defined}
+      homepage.href: https://jellyfin.${DOMAIN}
       homepage.icon: jellyfin
       homepage.name: Jellyfin
       homepage.widget.enableNowPlaying: true
       homepage.widget.key: ${JELLYFIN_API_KEY:-}
       homepage.widget.streamOneStreamToTwoRows: true
       homepage.widget.type: jellyfin
-      homepage.widget.url: http://${HOST_IP:?no host ip defined}:8096
+      homepage.widget.url: http://host.docker.internal:8096
       traefik.enable: true
-      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN:?no domain defined}`) || Host(`tv.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN}`) || Host(`tv.${DOMAIN}`)
       traefik.http.services.jellyfin.loadbalancer.server.port: 8096
-      traefik.http.services.jellyfin.loadbalancer.server.url: http://127.0.0.1:8096
+      traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
     network_mode: host
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/jellyfin:/config
-      - ${MEDIA_PATH:-?media path not defined}:/media:ro
+      - ${DATA_PATH}/jellyfin:/config
+      - ${MEDIA_PATH:?media path not defined}:/media:ro
   lidarr:
     container_name: lidarr
     depends_on:
@@ -117,7 +110,7 @@ services:
     labels:
       homepage.description: Personal Music Curator
       homepage.group: Media
-      homepage.href: https://lidarr.${DOMAIN:?no domain defined}
+      homepage.href: https://lidarr.${DOMAIN}
       homepage.icon: lidarr
       homepage.name: Lidarr
       homepage.widget.key: ${LIDARR_API_KEY:-}
@@ -125,13 +118,13 @@ services:
       homepage.widget.url: http://lidarr:8686
       traefik.enable: true
       traefik.http.routers.lidarr.middlewares: authelia@docker
-      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN}`) || Host(`audio.${DOMAIN}`)
       traefik.http.services.lidarr.loadbalancer.server.port: 8686
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/lidarr:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
-      - ${MEDIA_PATH:-?media path not defined}/music:/music
+      - ${DATA_PATH}/lidarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/music:/music
   navidrome:
     container_name: navidrome
     environment:
@@ -140,7 +133,7 @@ services:
     labels:
       homepage.description: Personal Music Streamer
       homepage.group: Media
-      homepage.href: https://navidrome.${DOMAIN:?no domain defined}
+      homepage.href: https://navidrome.${DOMAIN}
       homepage.icon: navidrome
       homepage.name: Navidrome
       homepage.widget.salt: ${NAVIDROME_API_SALT:-}
@@ -149,13 +142,12 @@ services:
       homepage.widget.url: http://navidrome:4533
       homepage.widget.user: ${NAVIDROME_API_USER:-}
       traefik.enable: true
-      traefik.http.routers.navidrome.middlewares: authelia@docker
-      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN:?no domain defined}`) || Host(`music.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN}`) || Host(`music.${DOMAIN}`)
       traefik.http.services.navidrome.loadbalancer.server.port: 4533
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/navidrome:/data
-      - ${MEDIA_PATH:-?media path not defined}/music:/music:ro
+      - ${DATA_PATH}/navidrome:/data
+      - ${MEDIA_PATH}/music:/music:ro
   overseerr:
     container_name: overseerr
     environment:
@@ -164,48 +156,44 @@ services:
     labels:
       homepage.description: Media Server Request Management
       homepage.group: Media
-      homepage.href: https://overseerr.${DOMAIN:?no domain defined}
+      homepage.href: https://overseerr.${DOMAIN}
       homepage.icon: overseerr
       homepage.name: overseerr
       homepage.widget.key: ${OVERSEERR_API_KEY:-}
       homepage.widget.type: overseerr
       homepage.widget.url: http://overseerr:5055
       traefik.enable: true
-      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN:?no domain defined}`) || Host(`requests.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN}`) || Host(`requests.${DOMAIN_EXT}`)
     ports:
       - 5055:5055
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/overseerr:/config
+      - ${DATA_PATH}/overseerr:/config
   plex:
     container_name: plex
     devices:
       - /dev/dri
     environment:
       <<: *a1
-      ADVERTISE_IP: http://${HOST_IP:?no host ip defined}:32400/
+      ADVERTISE_IP: 192.168.0.3:32400
       UMASK_SET: 18
       VERSION: plexpass
-    image: plexinc/pms-docker:plexpass
+    image: plexinc/pms-docker
     labels:
       homepage.description: Media Server
       homepage.group: Media
-      homepage.href: https://plex.${DOMAIN:?no domain defined}
+      homepage.href: https://plex.${DOMAIN}
       homepage.icon: plex
       homepage.name: Plex
       homepage.widget.fields: '["streams", "movies", "tv", "albums"]'
       homepage.widget.key: ${PLEX_API_KEY:-}
       homepage.widget.type: plex
-      homepage.widget.url: http://${HOST_IP:?no host ip defined}:32400
-      traefik.enable: true
-      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN:?no domain defined}`) || Host(`watchtower.${DOMAIN:?no domain defined}`)
-      traefik.http.services.plex.loadbalancer.server.port: 32400
-      traefik.http.services.plex.loadbalancer.server.url: http://127.0.0.1:32400
+      homepage.widget.url: http://host.docker.internal:32400
     network_mode: host
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/plex:/config
-      - ${MEDIA_PATH:-?media path not defined}:/media
+      - ${DATA_PATH}/plex:/config
+      - ${MEDIA_PATH}:/media
       - /dev/shm/transcode:/transcode
   profilarr:
     container_name: profilarr
@@ -213,16 +201,16 @@ services:
     labels:
       homepage.description: Profile Management for *arrs
       homepage.group: Media
-      homepage.href: https://profilarr.${DOMAIN:?no domain defined}
+      homepage.href: https://profilarr.${DOMAIN}
       homepage.icon: profilarr
       homepage.name: Profilarr
       traefik.enable: true
       traefik.http.routers.profilarr.middlewares: authelia@docker
-      traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN}`)
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/profilarr:/config
+      - ${DATA_PATH}/profilarr:/config
   prowlarr:
     container_name: prowlarr
     environment:
@@ -231,7 +219,7 @@ services:
     labels:
       homepage.description: Indexer Manager for *arrs
       homepage.group: Media
-      homepage.href: https://prowlarr.${DOMAIN:?no domain defined}
+      homepage.href: https://prowlarr.${DOMAIN}
       homepage.icon: prowlarr
       homepage.name: Prowlarr
       homepage.widget.key: ${PROWLARR_API_KEY:-}
@@ -239,12 +227,12 @@ services:
       homepage.widget.url: http://prowlarr:9696
       traefik.enable: true
       traefik.http.routers.prowlarr.middlewares: authelia@docker
-      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN}`)
       traefik.http.services.prowlarr.loadbalancer.server.port: 9696
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/prowlarr:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
+      - ${DATA_PATH}/prowlarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
   qbittorrent:
     container_name: qbittorrent
     depends_on:
@@ -257,7 +245,7 @@ services:
     labels:
       homepage.description: BitTorrent client for ISOs
       homepage.group: Media
-      homepage.href: https://qbittorrent.${DOMAIN:?no domain defined}
+      homepage.href: https://qbittorrent.${DOMAIN}
       homepage.icon: qbittorrent
       homepage.name: qBittorrent
       homepage.widget.fields: '["download", "upload", "seed", "leech"]'
@@ -266,13 +254,13 @@ services:
       homepage.widget.url: http://gluetun:10095
       homepage.widget.username: ${QBITTORRENT_WEBUI_USERNAME:?qbit username not defined}
       traefik.enable: true
-      traefik.http.routers.qbittorrent.rule: Host(`qbittorrent.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.qbittorrent.rule: Host(`qbittorrent.${DOMAIN}`) || Host(`torrents.${DOMAIN}`)
       traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
     network_mode: service:gluetun
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/qbittorrent:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
+      - ${DATA_PATH}/qbittorrent:/config
+      - ${MEDIA_PATH}/downloads:/downloads
   radarr:
     container_name: radarr
     depends_on:
@@ -288,7 +276,7 @@ services:
     labels:
       homepage.description: Personal Movie Curator
       homepage.group: Media
-      homepage.href: https://radarr.${DOMAIN:?no domain defined}
+      homepage.href: https://radarr.${DOMAIN}
       homepage.icon: radarr
       homepage.name: Radarr
       homepage.widget.key: ${RADARR_API_KEY:-}
@@ -296,13 +284,13 @@ services:
       homepage.widget.url: http://radarr:7878
       traefik.enable: true
       traefik.http.routers.radarr.middlewares: authelia@docker
-      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN}`) || Host(`movies.${DOMAIN}`)
       traefik.http.services.radarr.loadbalancer.server.port: 7878
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/radarr:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
-      - ${MEDIA_PATH:-?media path not defined}/movies:/movies
+      - ${DATA_PATH}/radarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/movies:/movies
   sabnzbd:
     container_name: sabnzbd
     environment:
@@ -311,7 +299,7 @@ services:
     labels:
       homepage.description: Binary Newsreader
       homepage.group: Media
-      homepage.href: https://sabnzbd.${DOMAIN:?no domain defined}
+      homepage.href: https://sabnzbd.${DOMAIN}
       homepage.icon: sabnzbd
       homepage.name: sabnzbd
       homepage.widget.key: ${SABNZBD_API_KEY:-}
@@ -319,12 +307,12 @@ services:
       homepage.widget.url: http://sabnzbd:8080
       traefik.enable: true
       traefik.http.routers.sabnzbd.middlewares: authelia@docker
-      traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN}`) || Host(`nzb.${DOMAIN}`)
       traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/sabnzbd:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
+      - ${DATA_PATH}/sabnzbd:/config
+      - ${MEDIA_PATH}/downloads:/downloads
   sonarr:
     container_name: sonarr
     depends_on:
@@ -340,7 +328,7 @@ services:
     labels:
       homepage.description: Personal Series Curator
       homepage.group: Media
-      homepage.href: https://sonarr.${DOMAIN:?no domain defined}
+      homepage.href: https://sonarr.${DOMAIN}
       homepage.icon: sonarr
       homepage.name: Sonarr
       homepage.widget.key: ${SONARR_API_KEY:-}
@@ -348,39 +336,39 @@ services:
       homepage.widget.url: http://sonarr:8989
       traefik.enable: true
       traefik.http.routers.sonarr.middlewares: authelia@docker
-      traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN}`) || Host(`series.${DOMAIN}`)
       traefik.http.services.sonarr.loadbalancer.server.port: 8989
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/sonarr:/config
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
-      - ${MEDIA_PATH:-?media path not defined}/series:/series
+      - ${DATA_PATH}/sonarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/series:/series
   tautulli:
     container_name: tautulli
     image: lscr.io/linuxserver/tautulli
     labels:
       homepage.description: Media Server Companion
       homepage.group: Media
-      homepage.href: https://tautulli.${DOMAIN:?no domain defined}
+      homepage.href: https://tautulli.${DOMAIN}
       homepage.icon: tautulli
       homepage.name: Tautulli
       homepage.widget.key: ${TAUTULLI_API_KEY:-}
       homepage.widget.type: tautulli
       homepage.widget.url: http://tautulli:8181
       traefik.enable: true
-      traefik.http.routers.tautulli.rule: Host(`tautulli.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.tautulli.rule: Host(`tautulli.${DOMAIN}`) || Host(`streams.${DOMAIN_EXT}`)
     ports:
       - 8181:8181
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/tautulli:/config
+      - ${DATA_PATH}/tautulli:/config
   unpackerr:
     container_name: unpackerr
     environment:
       <<: *a1
       UN_DEBUG: false
-      UN_DIR_MODE: 0755
-      UN_FILE_MODE: 0644
+      UN_DIR_MODE: 755
+      UN_FILE_MODE: 644
       UN_FOLDER_0_DELETE_AFTER: 10m
       UN_FOLDER_0_DELETE_FILES: false
       UN_FOLDER_0_DELETE_ORIGINAL: false
@@ -395,7 +383,7 @@ services:
     image: golift/unpackerr
     restart: unless-stopped
     volumes:
-      - ${MEDIA_PATH:-?media path not defined}/downloads:/downloads
+      - ${MEDIA_PATH}/downloads:/downloads
   wizarr:
     container_name: wizarr
     environment:
@@ -404,10 +392,10 @@ services:
     image: ghcr.io/wizarrrr/wizarr
     labels:
       traefik.enable: true
-      traefik.http.routers.wizarr.rule: Host(`wizarr.${DOMAIN:?no domain defined}`) || Host(`join.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.wizarr.rule: Host(`wizarr.${DOMAIN}`) || Host(`join.${DOMAIN_EXT}`)
     ports:
       - 5690:5690
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/wizarr/database:/data/database
-      - ${DATA_PATH:?data path not defined}/wizarr/wizard:/data/wizard_steps
+      - ${DATA_PATH}/wizarr/database:/data/database
+      - ${DATA_PATH}/wizarr/wizard:/data/wizard_steps

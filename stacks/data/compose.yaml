@@ -27,7 +27,7 @@ services:
     labels:
       homepage.description: Photo management and backup
       homepage.group: Data
-      homepage.href: https://photos.${DOMAIN:?no domain defined}
+      homepage.href: https://photos.${DOMAIN}
       homepage.icon: immich
       homepage.name: Immich
       homepage.widget.key: ${IMMICH_API_KEY:-}
@@ -35,12 +35,11 @@ services:
       homepage.widget.url: http://immich:2283
       homepage.widget.version: 2
       traefik.enable: true
-      traefik.http.routers.immich.rule: Host(`immich.${DOMAIN:?no domain defined}`) || Host(`photos.${DOMAIN:?no domain defined}`)
-    ports:
-      - 2283:2283
+      traefik.http.routers.immich.rule: Host(`immich.${DOMAIN}`) || Host(`photos.${DOMAIN}`)
+      trafik.http.routers.immich.loadbalancer.server.port: 2283
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/immich/upload:/usr/src/app/upload
+      - ${DATA_PATH}/immich/upload:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
   immich-machine-learning:
     container_name: immich-machine-learning
@@ -54,7 +53,7 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/immich/cache:/cache
+      - ${DATA_PATH}/immich/cache:/cache
   mariadb:
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
     container_name: mariadb
@@ -66,7 +65,7 @@ services:
     image: mariadb:10.11
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/mariadb:/var/lib/mysql
+      - ${DATA_PATH}/mariadb:/var/lib/mysql
   nextcloud:
     container_name: nextcloud
     depends_on:
@@ -75,7 +74,7 @@ services:
     environment:
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${DOMAIN:?no domain defined} cloud.${DOMAIN:?no domain defined} ${HOST_IP:?no host ip defined}"
+      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${DOMAIN} cloud.${DOMAIN}"
       POSTGRES_DATABASE: ${NEXTCLOUD_DB_NAME:-nextcloud database name not defined}
       POSTGRES_HOST: postgres
       POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?nextcloud database password not defined}
@@ -85,24 +84,23 @@ services:
     labels:
       homepage.description: Cloud storage and collaboration
       homepage.group: Data
-      homepage.href: https://nextcloud.${DOMAIN:?no domain defined}
+      homepage.href: https://nextcloud.${DOMAIN}
       homepage.icon: nextcloud
       homepage.name: Nextcloud
       homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
       homepage.widget.type: nextcloud
-      homepage.widget.url: https://nextcloud.${DOMAIN:?no domain defined}
+      homepage.widget.url: https://nextcloud.${DOMAIN}
       homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
       traefik.enable: true
       traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
       traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
       traefik.http.routers.nextcloud.entrypoints: websecure
       traefik.http.routers.nextcloud.middlewares: nextcloud-dav
-      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN:?no domain defined}`) || Host(`cloud.${DOMAIN:?no domain defined}`)
-    ports:
-      - 8888:80
+      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN}`) || Host(`cloud.${DOMAIN}`)
+      traefik.http.services.nextcloud.loadbalancer.server.port: 80
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/nextcloud:/var/www/html
+      - ${DATA_PATH}/nextcloud:/var/www/html
       - ${NEXTCLOUD_DATA_PATH:?nextcloud data path not defined}:/var/www/html/data
   paperless:
     container_name: paperless
@@ -122,12 +120,12 @@ services:
       PAPERLESS_TIKA_ENABLED: 1
       PAPERLESS_TIKA_ENDPOINT: http://tika:9998
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
-      PAPERLESS_URL: https://paperless.${DOMAIN:?no domain defined}
+      PAPERLESS_URL: https://paperless.${DOMAIN}
     image: ghcr.io/paperless-ngx/paperless-ngx
     labels:
       homepage.description: Paperless Document Management
       homepage.group: Data
-      homepage.href: https://paperless.${DOMAIN:?no domain defined}
+      homepage.href: https://paperless.${DOMAIN}
       homepage.icon: paperless
       homepage.name: Paperless
       homepage.widget.fields: '["total", "inbox"]'
@@ -136,14 +134,14 @@ services:
       homepage.widget.url: http://paperless:8000
       homepage.widget.username: ${PAPERLESS_ADMIN_USER:?paperless admin username not defined}
       traefik.enable: true
-      traefik.http.routers.paperless.rule: Host(`paperless.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.paperless.rule: Host(`paperless.${DOMAIN}`)
       traefik.http.services.paperless.loadbalancer.server.port: 8000
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/paperless/data:/usr/src/paperless/data
-      - ${DATA_PATH:?data path not defined}/paperless/media:/usr/src/paperless/media
-      - ${DATA_PATH:?data path not defined}/paperless/export:/usr/src/paperless/export
-      - ${DATA_PATH:?data path not defined}/paperless/consume:/usr/src/paperless/consume
+      - ${DATA_PATH}/paperless/data:/usr/src/paperless/data
+      - ${DATA_PATH}/paperless/media:/usr/src/paperless/media
+      - ${DATA_PATH}/paperless/export:/usr/src/paperless/export
+      - ${DATA_PATH}/paperless/consume:/usr/src/paperless/consume
   pgadmin:
     container_name: pgadmin
     depends_on:
@@ -159,18 +157,18 @@ services:
     labels:
       homepage.description: PostgreSQL Management Tool
       homepage.group: Data
-      homepage.href: https://pgadmin.${DOMAIN:?no domain defined}
+      homepage.href: https://pgadmin.${DOMAIN}
       homepage.icon: postgres
       homepage.name: Postgres
       traefik.enable: true
-      traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN}`)
       traefik.http.services.pgadmin.loadbalancer.server.port: 80
     restart: unless-stopped
     user: "5050:5050"
     volumes:
-      - ${DATA_PATH:?data path not defined}/pgadmin/pgpass:/tmp/pgpass:ro
-      - ${DATA_PATH:?data path not defined}/pgadmin/servers.json:/pgadmin4/servers.json:ro
-      - ${DATA_PATH:?data path not defined}/pgadmin/data:/var/lib/pgadmin
+      - ${DATA_PATH}/pgadmin/pgpass:/tmp/pgpass:ro
+      - ${DATA_PATH}/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ${DATA_PATH}/pgadmin/data:/var/lib/pgadmin
   postgres:
     container_name: postgres
     deploy:
@@ -200,24 +198,24 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ${DATA_PATH:?data path not defined}/postgres/data:/var/lib/postgresql/data
+      - ${DATA_PATH}/postgres/data:/var/lib/postgresql/data
   redis:
     container_name: redis
     image: redis
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/redis:/data
+      - ${DATA_PATH}/redis:/data
   syncthing:
     container_name: syncthing
     image: syncthing/syncthing
     labels:
       homepage.description: File synchronization
       homepage.group: Data
-      homepage.href: https://syncthing.${DOMAIN:?no domain defined}
+      homepage.href: https://syncthing.${DOMAIN}
       homepage.icon: syncthing
       homepage.name: Syncthing
       traefik.enable: true
-      traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN}`)
       traefik.http.services.syncthing.loadbalancer.server.port: 8384
     ports:
       - 8384:8384
@@ -226,7 +224,7 @@ services:
       - 21027:21027/udp
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/syncthing:/var/syncthing
+      - ${DATA_PATH}/syncthing:/var/syncthing
   tika:
     container_name: tika
     image: apache/tika
@@ -245,4 +243,4 @@ services:
       - 6379:6379
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/valkey:/data
+      - ${DATA_PATH}/valkey:/data

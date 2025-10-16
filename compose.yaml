@@ -17,10 +17,9 @@ services:
       homepage.name: Dockge
       traefik.enable: true
       traefik.http.routers.dockge.rule: Host(`dockge.${DOMAIN:?no domain defined}`) || Host(`docker.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.dockge.loadbalancer.server.port: 5001
     networks:
       - core
-    ports:
-      - 5001:5001
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

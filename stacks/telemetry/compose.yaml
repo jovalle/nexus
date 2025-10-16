@@ -1,4 +1,36 @@
+networks:
+  core:
+    external: true
 services:
+  apprise:
+    container_name: apprise
+    image: caronc/apprise
+    labels:
+      traefik.enable: true
+      traefik.http.routers.apprise.middlewares: authelia@docker
+      traefik.http.routers.apprise.rule: Host(`apprise.${DOMAIN:?no domain defined}`) || Host(`notify.${DOMAIN:?no domain defined}`)
+      traefik.http.services.apprise.loadbalancer.server.port: 8000
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH:?data path not defined}/apprise:/config
+  atlas:
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    container_name: atlas
+    environment:
+      ATLAS_API_PORT: 8885
+      ATLAS_UI_PORT: 8884
+    image: keinstien/atlas
+    labels:
+      traefik.enable: true
+      traefik.http.routers.atlas.rule: Host(`atlas.${DOMAIN:?no domain defined}`)
+      traefik.http.services.atlas.loadbalancer.server.port: 8884
+      traefik.http.services.atlas.loadbalancer.server.url: http://host.docker.internal:8884
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   beszel:
     container_name: beszel
     image: henrygd/beszel
@@ -8,19 +40,17 @@ services:
       homepage.href: https://beszel.${DOMAIN:?no domain defined}
       homepage.icon: beszel
       homepage.name: Beszel
-      homepage.widget.fields: '["systems", "up"'
+      homepage.widget.fields: '["systems", "up"]'
       homepage.widget.password: ${BESZEL_ADMIN_PASSWORD:?beszel admin password not defined}
       homepage.widget.type: beszel
       homepage.widget.url: http://beszel:8090
       homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
       homepage.widget.version: 2
       traefik.enable: true
-      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN:?no domain defined}`) || Host(`systems.${DOMAIN:?no domain defined}`)
-    ports:
-      - 8090:8090
+      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN}`)
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/beszel/data:/beszel_data
+      - ${DATA_PATH}/beszel/data:/beszel_data
   beszel-agent:
     container_name: beszel-agent
     depends_on:
@@ -33,15 +63,28 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  cadvisor:
+    container_name: cadvisor
+    devices:
+      - /dev/kmsg
+    image: gcr.io/cadvisor/cadvisor
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
   glances:
     container_name: glances
     environment:
-      - "GLANCES_OPT=-w -1"
+      - GLANCES_OPT=-w -1
     image: nicolargo/glances
     labels:
       homepage.description: System Monitoring Tool
       homepage.group: Telemetry
-      homepage.href: https://glances.${DOMAIN:?no domain defined}
+      homepage.href: https://glances.${DOMAIN}
       homepage.icon: glances
       homepage.name: Glances
       homepage.widget.metric: info
@@ -49,7 +92,7 @@ services:
       homepage.widget.url: http://glances:61208
       homepage.widget.version: 4
       traefik.enable: true
-      traefik.http.routers.glances.rule: Host(`glances.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.glances.rule: Host(`glances.${DOMAIN}`)
       traefik.http.services.glances.loadbalancer.server.port: 61208
     pid: host
     restart: unless-stopped
@@ -58,15 +101,18 @@ services:
       - /etc/os-release:/etc/os-release:ro
   grafana:
     container_name: grafana
+    depends_on:
+      - prometheus
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
+      GF_SERVER_ROOT_URL: http://localhost:3000
       GF_USERS_ALLOW_SIGN_UP: false
     image: grafana/grafana
     labels:
       homepage.description: Metrics Visualizer
       homepage.group: Telemetry
-      homepage.href: https://grafana.${DOMAIN:?no domain defined}
+      homepage.href: https://grafana.${DOMAIN}
       homepage.icon: grafana
       homepage.name: Grafana
       homepage.widget.fields: '["dashboards","datasources","totalalerts","alertstriggered"]'
@@ -75,58 +121,121 @@ services:
       homepage.widget.url: http://grafana:3000
       homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
       traefik.enable: true
-      traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN}`) || Host(`dashboards.${DOMAIN}`)
       traefik.http.services.grafana.loadbalancer.server.port: 3000
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      - ${DATA_PATH:?data path not defined}/grafana/dashboards:/var/lib/grafana/dashboards
-      - ${DATA_PATH:?data path not defined}/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ${DATA_PATH}/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ${DATA_PATH}/grafana/dashboards:/var/lib/grafana/dashboards
+      - ${DATA_PATH}/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+  harborguard:
+    container_name: harborguard
+    image: ghcr.io/harborguard/harborguard
+    labels:
+      traefik.enable: true
+      traefik.http.routers.harborguard.rule: Host(`harborguard.${DOMAIN}`)
+      traefik.http.services.harborguard.loadbalancer.server.port: 3000
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  intel-gpu-exporter:
+    command:
+      - -interval=5s
+      - -addr
+      - ":9091"
+    container_name: intel-gpu-exporter
+    devices:
+      - /dev/dri:/dev/dri
+    image: ghcr.io/clambin/intel-gpu-exporter
+    pid: host
+    privileged: true
+    restart: unless-stopped
+  kromgo:
+    container_name: kromgo
+    depends_on:
+      - prometheus
+    environment:
+      PROMETHEUS_URL: "http://prometheus:9090"
+    image: ghcr.io/kashalls/kromgo
+    labels:
+      traefik.enable: true
+      traefik.http.routers.kromgo.loadbalancer.server.port: 8080
+      traefik.http.routers.kromgo.rule: Host(`kromgo.${DOMAIN}`) || Host(`stat.${DOMAIN}`)
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml
+  loggifly:
+    container_name: loggifly
+    environment:
+      DOCKER_HOST: tcp://host.docker.internal:2375
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    image: ghcr.io/clemcer/loggifly
+    read_only: true
+    restart: unless-stopped
+    user: 1000:1000
+    volumes:
+      - ${DATA_PATH}/loggifly:/config
   loki:
     container_name: loki
     image: grafana/loki
-    ports:
-      - 3100:3100
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/loki:/loki
+      - ${DATA_PATH}/loki:/loki
   node-exporter:
-    command: --path.rootfs=/host
+    command:
+      - --collector.cpu.info
+      - --path.procfs=/host/proc
+      - --path.rootfs=/host
+      - --path.sysfs=/host/sys
     container_name: node-exporter
     image: quay.io/prometheus/node-exporter
-    ports:
-      - 9100:9100
+    network_mode: host
+    pid: host
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - /:/host:ro,rslave
+  plex-exporter:
+    container_name: plex-exporter
+    environment:
+      PLEX_SERVER: "http://192.168.0.3:32400"
+      PLEX_TOKEN: "${PLEX_TOKEN:?no plex token defined}"
+    image: ghcr.io/timothystewart6/prometheus-plex-exporter
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
   prometheus:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3650d
       - --web.console.libraries=/etc/prometheus/console_libraries
       - --web.console.templates=/etc/prometheus/consoles
-      - --storage.tsdb.retention.time=3650d
+      - --web.enable-admin-api
       - --web.enable-lifecycle
     container_name: prometheus
     environment:
       PROMETHEUS_RETENTION_TIME: 3650d
+    extra_hosts:
+      - host.docker.internal:host-gateway
     image: prom/prometheus
     labels:
       homepage.description: Metrics collection
       homepage.group: Telemetry
-      homepage.href: https://prometheus.${DOMAIN:?no domain defined}
+      homepage.href: https://prometheus.${DOMAIN}
       homepage.icon: prometheus
       homepage.name: Prometheus
       homepage.widget.type: prometheus
       homepage.widget.url: http://prometheus:9090
       traefik.enable: true
-      traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN:?no domain defined}`)
-    ports:
-      - 9090:9090
+      traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN}`)
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ${DATA_PATH:?data path not defined}/prometheus/data:/prometheus
+      - ${DATA_PATH}/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ${DATA_PATH}/prometheus/data:/prometheus
   promtail:
     command: -config.file=/etc/promtail/config.yml
     container_name: promtail
@@ -135,7 +244,13 @@ services:
     image: grafana/promtail
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/promtail/data:/var/lib/promtail/positions
-      - ${DATA_PATH:?data path not defined}/promtail/promtail-config.yaml:/etc/promtail/config.yml
+      - ${DATA_PATH}/promtail/data:/var/lib/promtail/positions
+      - ${DATA_PATH}/promtail/promtail-config.yaml:/etc/promtail/config.yml
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
+  smartctl-exporter:
+    container_name: smartctl-exporter
+    image: quay.io/prometheuscommunity/smartctl-exporter
+    privileged: true
+    restart: unless-stopped
+    user: root

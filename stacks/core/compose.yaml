@@ -20,7 +20,7 @@ services:
     labels:
       homepage.description: Ad-Blocking DNS Server
       homepage.group: Core
-      homepage.href: https://starport.${DOMAIN:?no domain defined}
+      homepage.href: https://adguard.nexus.${DOMAIN:?no domain defined}
       homepage.icon: adguard-home
       homepage.name: AdGuard Home (Secondary)
       homepage.widget.password: ${ADMIN_PASSWORD:?admin password not defined}
@@ -29,7 +29,7 @@ services:
       homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
       traefik.enable: true
       traefik.http.routers.adguard.entrypoints: websecure
-      traefik.http.routers.adguard.rule: Host(`starport.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.adguard.rule: Host(`adguard.nexus.${DOMAIN}`)
       traefik.http.routers.adguard.tls: true
       traefik.http.services.adguard.loadbalancer.server.port: 80
     networks:
@@ -46,30 +46,30 @@ services:
     restart: unless-stopped
     volumes:
       - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
-      - ${DATA_PATH:?data path not defined}/adguard/work:/opt/adguardhome/work
+      - ${DATA_PATH}/adguard/work:/opt/adguardhome/work
   authelia:
     container_name: authelia
     image: authelia/authelia
     labels:
-      traefik.enable: 'true'
+      traefik.enable: true
       traefik.http.middlewares.authelia-basic.forwardAuth.address: http://authelia:9091/api/verify?auth=basic
       traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
       traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader: true
-      traefik.http.middlewares.authelia.forwardAuth.address: http://authelia:9091/api/verify?rd=https://auth.${DOMAIN:?no domain defined}
+      traefik.http.middlewares.authelia.forwardAuth.address: http://authelia:9091/api/verify?rd=https://auth.${DOMAIN}
       traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
       traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader: true
       traefik.http.routers.authelia.entrypoints: websecure
-      traefik.http.routers.authelia.rule: Host(`auth.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.authelia.rule: Host(`authelia.${DOMAIN}`) || Host(`auth.${DOMAIN}`)
       traefik.http.routers.authelia.tls: true
       traefik.http.services.authelia.loadbalancer.server.port: 9091
     networks:
       - core
       - data_default
-    restart: 'unless-stopped'
+    restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ${DATA_PATH:?data path not defined}/authelia/config:/config
+      - ${DATA_PATH}/authelia/config:/config
   docker-socket-proxy:
     container_name: proxy
     environment:
@@ -80,44 +80,64 @@ services:
     image: ghcr.io/tecnativa/docker-socket-proxy
     ports:
       - 0.0.0.0:2375:2375
+    privileged: true
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  dockpeek:
+    container_name: dockpeek
+    environment:
+      PASSWORD: ${DOCKPEEK_PASSWORD:?dockpeek password not defined}
+      SECRET_KEY: ${DOCKPEEK_SECRET_KEY:?dockpeek secret key not defined}
+      TRAEFIK_LABELS: true
+      USERNAME: ${DOCKPEEK_USERNAME:?dockpeek username not defined}
+    image: ghcr.io/dockpeek/dockpeek
+    labels:
+      traefik.enable: true
+      traefik.http.routers.dockpeek.entrypoints: websecure
+      traefik.http.routers.dockpeek.rule: Host(`dockpeek.${DOMAIN}`)
+      traefik.http.routers.dockpeek.loadbalancer.server.port: 8000
+    networks:
+      - core
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   dozzle:
     container_name: dozzle
     environment:
       DOZZLE_ENABLE_ACTIONS: true
       DOZZLE_ENABLE_SHELL: true
-    image: amir20/dozzle:latest
+    image: amir20/dozzle
     labels:
       traefik.enable: true
       traefik.http.routers.dozzle.entrypoints: websecure
-      traefik.http.routers.dozzle.rule: Host(`dozzle.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.dozzle.rule: Host(`dozzle.${DOMAIN}`) || Host(`logs.${DOMAIN}`)
+      traefik.http.routers.dozzle.loadbalancer.server.port: 8080
     networks:
       - core
-    ports:
-      - 8083:8080
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   homepage:
     container_name: homepage
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN:?no domain defined}
+      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN},dash.${DOMAIN}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     image: ghcr.io/gethomepage/homepage
     labels:
       traefik.enable: true
-      traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN}`) || Host(`dash.${DOMAIN}`)
+      traefik.http.routers.homepage.loadbalancer.server.port: 3000
     networks:
       - app_default
       - core
       - data_default
       - media_default
       - telemetry_default
-    ports:
-      - 3001:3000
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/homepage:/app/config
+      - ${DATA_PATH}/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
   portainer:
     command: -H unix:///var/run/docker.sock --admin-password "${PORTAINER_ADMIN_PASSWORD_HASH:?password hash not defined}"
@@ -126,7 +146,7 @@ services:
     labels:
       homepage.description: Container Management
       homepage.group: Core
-      homepage.href: https://portainer.${DOMAIN:?no domain defined}
+      homepage.href: https://portainer.${DOMAIN}
       homepage.icon: portainer
       homepage.name: Portainer
       homepage.widget.env: 1
@@ -135,34 +155,48 @@ services:
       homepage.widget.type: portainer
       homepage.widget.url: http://portainer:9000
       traefik.enable: true
-      traefik.http.routers.portainer.rule: Host(`portainer.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.portainer.rule: Host(`portainer.${DOMAIN}`)
       traefik.http.services.portainer.loadbalancer.server.port: 9000
     networks:
       - core
-    ports:
-      - 9999:9000
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/portainer:/data
+      - ${DATA_PATH}/portainer:/data
       - /var/run/docker.sock:/var/run/docker.sock
+  tailscale:
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    container_name: tailscale
+    environment:
+      TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
+      TS_EXTRA_ARGS: "--accept-routes=true --advertise-routes=192.168.0.0/24 --advertise-exit-node=true"
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_STATE_DIR: /var/lib/tailscale
+    hostname: nexus
+    image: tailscale/tailscale
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
+      - ${DATA_PATH}/tailscale:/var/run/tailscale
+      - /dev/net/tun:/dev/net/tun
   traefik:
     command:
       - --api.dashboard=true
       - --api.insecure=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/letsencrypt/acme.json
       - --entrypoints.web.address=:80
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.websecure.address=:443
-      - --entrypoints.websecure.http.tls=true
       - --entrypoints.websecure.http.tls.certResolver=letsencrypt
-      - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN:?no domain defined}
-      - --entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN:?no domain defined}
-      - --log.level=DEBUG
-      - --providers.docker.exposedbydefault=true
+      - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN}
+      - --entrypoints.websecure.http.tls.domains[0].sans=*.nexus.${DOMAIN},*.${DOMAIN}
+      - --entrypoints.websecure.http.tls=true
+      - --log.level=INFO
       - --providers.docker=true
       - --serverstransport.insecureskipverify=true
     container_name: traefik
@@ -171,22 +205,20 @@ services:
       CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:?cloudflare email not defined}
       TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${CLOUDFLARE_EMAIL:?cloudflare email not defined}
     extra_hosts:
-      - host.docker.internal:172.17.0.1
+      - host.docker.internal:host-gateway
+    hostname: traefik
     image: traefik
     labels:
       homepage.description: Reverse proxy for exposing apps via HTTPS
       homepage.group: Core
-      homepage.href: https://traefik.${DOMAIN:?no domain defined}
+      homepage.href: https://traefik.nexus.${DOMAIN}
       homepage.icon: traefik
       homepage.name: Traefik (Nexus)
       homepage.widget.type: traefik
-      homepage.widget.url: http://traefik:8080
+      homepage.widget.url: http://host.docker.internal:8080
       traefik.enable: true
-      traefik.http.routers.dashboard.entrypoints: websecure
-      traefik.http.routers.dashboard.middlewares: 'authelia@docker'
-      traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.dashboard.rule: Host(`traefik.nexus.${DOMAIN}`)
       traefik.http.routers.dashboard.service: api@internal
-      traefik.http.routers.dashboard.tls: true
     networks:
       - app_default
       - core
@@ -194,11 +226,11 @@ services:
       - media_default
       - telemetry_default
     ports:
-      - 8081:8080
+      - 8080:8080
       - 8443:443
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/letsencrypt:/letsencrypt
+      - ${DATA_PATH}/letsencrypt:/etc/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
   watchtower:
     container_name: watchtower
