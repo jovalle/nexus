@@ -34,9 +34,8 @@ services:
       homepage.widget.type: immich
       homepage.widget.url: http://immich:2283
       homepage.widget.version: 2
-      traefik.enable: true
       traefik.http.routers.immich.rule: Host(`immich.${DOMAIN}`) || Host(`photos.${DOMAIN}`)
-      trafik.http.routers.immich.loadbalancer.server.port: 2283
+      traefik.http.services.immich.loadbalancer.server.port: 2283
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/immich/upload:/usr/src/app/upload
@@ -51,6 +50,8 @@ services:
       IMMICH_VERSION: ${IMMICH_VERSION:-release}
       NODE_ENV: production
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    labels:
+      traefik.enable: false
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/immich/cache:/cache
@@ -91,10 +92,8 @@ services:
       homepage.widget.type: nextcloud
       homepage.widget.url: https://nextcloud.${DOMAIN}
       homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      traefik.enable: true
       traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
       traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
-      traefik.http.routers.nextcloud.entrypoints: websecure
       traefik.http.routers.nextcloud.middlewares: nextcloud-dav
       traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN}`) || Host(`cloud.${DOMAIN}`)
       traefik.http.services.nextcloud.loadbalancer.server.port: 80
@@ -133,7 +132,6 @@ services:
       homepage.widget.type: paperlessngx
       homepage.widget.url: http://paperless:8000
       homepage.widget.username: ${PAPERLESS_ADMIN_USER:?paperless admin username not defined}
-      traefik.enable: true
       traefik.http.routers.paperless.rule: Host(`paperless.${DOMAIN}`)
       traefik.http.services.paperless.loadbalancer.server.port: 8000
     restart: unless-stopped
@@ -160,7 +158,6 @@ services:
       homepage.href: https://pgadmin.${DOMAIN}
       homepage.icon: postgres
       homepage.name: Postgres
-      traefik.enable: true
       traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN}`)
       traefik.http.services.pgadmin.loadbalancer.server.port: 80
     restart: unless-stopped
@@ -214,7 +211,6 @@ services:
       homepage.href: https://syncthing.${DOMAIN}
       homepage.icon: syncthing
       homepage.name: Syncthing
-      traefik.enable: true
       traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN}`)
       traefik.http.services.syncthing.loadbalancer.server.port: 8384
     ports:

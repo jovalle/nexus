@@ -15,15 +15,18 @@ services:
       homepage.widget.key: ${BAZARR_API_KEY:-}
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
-      traefik.enable: true
+      traefik.http.routers.bazarr-status.priority: 100
+      traefik.http.routers.bazarr-status.rule: (Host(`bazarr.${DOMAIN}`) || Host(`subs.${DOMAIN}`)) && PathPrefix(`/api/system/status`)
+      traefik.http.routers.bazarr-status.service: bazarr
       traefik.http.routers.bazarr.middlewares: authelia@docker
-      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN}`) || Host(`subs.${DOMAIN})
+      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN}`) || Host(`subs.${DOMAIN}`)
+      traefik.http.routers.bazarr.service: bazarr
       traefik.http.services.bazarr.loadbalancer.server.port: 6767
     restart: unless-stopped
     volumes:
       - ${DATA_PATH:?data path not defined}/bazarr:/config
-      - ${MEDIA_PATH:-?media path not defined}/movies:/movies
-      - ${MEDIA_PATH:-?media path not defined}/series:/series
+      - ${MEDIA_PATH:?media path not defined}/movies:/movies
+      - ${MEDIA_PATH}/series:/series
   flaresolverr:
     container_name: flaresolverr
     environment:
@@ -33,7 +36,6 @@ services:
       LOG_LEVEL: info
     image: ghcr.io/flaresolverr/flaresolverr
     labels:
-      traefik.enable: true
       traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN}`)
       traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
     restart: unless-stopped
@@ -88,9 +90,7 @@ services:
       homepage.widget.streamOneStreamToTwoRows: true
       homepage.widget.type: jellyfin
       homepage.widget.url: http://host.docker.internal:8096
-      traefik.enable: true
       traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN}`) || Host(`tv.${DOMAIN}`)
-      traefik.http.services.jellyfin.loadbalancer.server.port: 8096
       traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
     network_mode: host
     restart: unless-stopped
@@ -116,7 +116,9 @@ services:
       homepage.widget.key: ${LIDARR_API_KEY:-}
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
-      traefik.enable: true
+      traefik.http.routers.lidarr-status.priority: 100
+      traefik.http.routers.lidarr-status.rule: Host(`lidarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.lidarr-status.service: lidarr
       traefik.http.routers.lidarr.middlewares: authelia@docker
       traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN}`) || Host(`audio.${DOMAIN}`)
       traefik.http.services.lidarr.loadbalancer.server.port: 8686
@@ -141,7 +143,6 @@ services:
       homepage.widget.type: navidrome
       homepage.widget.url: http://navidrome:4533
       homepage.widget.user: ${NAVIDROME_API_USER:-}
-      traefik.enable: true
       traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN}`) || Host(`music.${DOMAIN}`)
       traefik.http.services.navidrome.loadbalancer.server.port: 4533
     restart: unless-stopped
@@ -162,8 +163,7 @@ services:
       homepage.widget.key: ${OVERSEERR_API_KEY:-}
       homepage.widget.type: overseerr
       homepage.widget.url: http://overseerr:5055
-      traefik.enable: true
-      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN}`) || Host(`requests.${DOMAIN_EXT}`)
+      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN}`) || Host(`requests.${DOMAIN_EXT:?no external domain defined}`)
     ports:
       - 5055:5055
     restart: unless-stopped
@@ -189,6 +189,8 @@ services:
       homepage.widget.key: ${PLEX_API_KEY:-}
       homepage.widget.type: plex
       homepage.widget.url: http://host.docker.internal:32400
+      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN}`) || Host(`watch.${DOMAIN_EXT}`)
+      traefik.http.services.plex.loadbalancer.server.url: http://host.docker.internal:32400
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -204,11 +206,12 @@ services:
       homepage.href: https://profilarr.${DOMAIN}
       homepage.icon: profilarr
       homepage.name: Profilarr
-      traefik.enable: true
       traefik.http.routers.profilarr.middlewares: authelia@docker
       traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN}`)
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
     restart: unless-stopped
+    ports:
+      - 6868:6868
     volumes:
       - ${DATA_PATH}/profilarr:/config
   prowlarr:
@@ -225,7 +228,9 @@ services:
       homepage.widget.key: ${PROWLARR_API_KEY:-}
       homepage.widget.type: prowlarr
       homepage.widget.url: http://prowlarr:9696
-      traefik.enable: true
+      traefik.http.routers.prowlarr-status.priority: 100
+      traefik.http.routers.prowlarr-status.rule: Host(`prowlarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.prowlarr-status.service: prowlarr
       traefik.http.routers.prowlarr.middlewares: authelia@docker
       traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN}`)
       traefik.http.services.prowlarr.loadbalancer.server.port: 9696
@@ -253,7 +258,6 @@ services:
       homepage.widget.type: qbittorrent
       homepage.widget.url: http://gluetun:10095
       homepage.widget.username: ${QBITTORRENT_WEBUI_USERNAME:?qbit username not defined}
-      traefik.enable: true
       traefik.http.routers.qbittorrent.rule: Host(`qbittorrent.${DOMAIN}`) || Host(`torrents.${DOMAIN}`)
       traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
     network_mode: service:gluetun
@@ -282,7 +286,9 @@ services:
       homepage.widget.key: ${RADARR_API_KEY:-}
       homepage.widget.type: radarr
       homepage.widget.url: http://radarr:7878
-      traefik.enable: true
+      traefik.http.routers.radarr-status.priority: 100
+      traefik.http.routers.radarr-status.rule: Host(`radarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.radarr-status.service: radarr
       traefik.http.routers.radarr.middlewares: authelia@docker
       traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN}`) || Host(`movies.${DOMAIN}`)
       traefik.http.services.radarr.loadbalancer.server.port: 7878
@@ -305,7 +311,9 @@ services:
       homepage.widget.key: ${SABNZBD_API_KEY:-}
       homepage.widget.type: sabnzbd
       homepage.widget.url: http://sabnzbd:8080
-      traefik.enable: true
+      traefik.http.routers.sabnzbd-status.priority: 100
+      traefik.http.routers.sabnzbd-status.rule: Host(`sabnzbd.${DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.sabnzbd-status.service: sabnzbd
       traefik.http.routers.sabnzbd.middlewares: authelia@docker
       traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN}`) || Host(`nzb.${DOMAIN}`)
       traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
@@ -334,7 +342,9 @@ services:
       homepage.widget.key: ${SONARR_API_KEY:-}
       homepage.widget.type: sonarr
       homepage.widget.url: http://sonarr:8989
-      traefik.enable: true
+      traefik.http.routers.sonarr-status.priority: 100
+      traefik.http.routers.sonarr-status.rule: Host(`sonarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.sonarr-status.service: sonarr
       traefik.http.routers.sonarr.middlewares: authelia@docker
       traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN}`) || Host(`series.${DOMAIN}`)
       traefik.http.services.sonarr.loadbalancer.server.port: 8989
@@ -355,7 +365,6 @@ services:
       homepage.widget.key: ${TAUTULLI_API_KEY:-}
       homepage.widget.type: tautulli
       homepage.widget.url: http://tautulli:8181
-      traefik.enable: true
       traefik.http.routers.tautulli.rule: Host(`tautulli.${DOMAIN}`) || Host(`streams.${DOMAIN_EXT}`)
     ports:
       - 8181:8181
@@ -381,6 +390,8 @@ services:
       UN_RETRY_DELAY: 5m
       UN_START_DELAY: 1m
     image: golift/unpackerr
+    labels:
+      traefik.enable: false
     restart: unless-stopped
     volumes:
       - ${MEDIA_PATH}/downloads:/downloads
@@ -391,7 +402,6 @@ services:
       DISABLE_BUILTIN_AUTH: false
     image: ghcr.io/wizarrrr/wizarr
     labels:
-      traefik.enable: true
       traefik.http.routers.wizarr.rule: Host(`wizarr.${DOMAIN}`) || Host(`join.${DOMAIN_EXT}`)
     ports:
       - 5690:5690

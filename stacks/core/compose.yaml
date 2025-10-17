@@ -1,11 +1,13 @@
 networks:
   app_default:
     external: true
-  core:
-    driver: bridge
+  core_default:
+    external: true
   data_default:
     external: true
   media_default:
+    external: true
+  nexus_default:
     external: true
   telemetry_default:
     external: true
@@ -27,13 +29,9 @@ services:
       homepage.widget.type: adguard
       homepage.widget.url: http://adguard
       homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
-      traefik.enable: true
-      traefik.http.routers.adguard.entrypoints: websecure
-      traefik.http.routers.adguard.rule: Host(`adguard.nexus.${DOMAIN}`)
+      traefik.http.routers.adguard.rule: Host(`adguard-2.${DOMAIN}`) || Host(`adguard.nexus.${DOMAIN}`)
       traefik.http.routers.adguard.tls: true
       traefik.http.services.adguard.loadbalancer.server.port: 80
-    networks:
-      - core
     ports:
       - 53:53/tcp
       - 53:53/udp
@@ -51,19 +49,17 @@ services:
     container_name: authelia
     image: authelia/authelia
     labels:
-      traefik.enable: true
       traefik.http.middlewares.authelia-basic.forwardAuth.address: http://authelia:9091/api/verify?auth=basic
       traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
       traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader: true
       traefik.http.middlewares.authelia.forwardAuth.address: http://authelia:9091/api/verify?rd=https://auth.${DOMAIN}
       traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
       traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader: true
-      traefik.http.routers.authelia.entrypoints: websecure
       traefik.http.routers.authelia.rule: Host(`authelia.${DOMAIN}`) || Host(`auth.${DOMAIN}`)
       traefik.http.routers.authelia.tls: true
       traefik.http.services.authelia.loadbalancer.server.port: 9091
     networks:
-      - core
+      - core_default
       - data_default
     restart: unless-stopped
     security_opt:
@@ -93,12 +89,8 @@ services:
       USERNAME: ${DOCKPEEK_USERNAME:?dockpeek username not defined}
     image: ghcr.io/dockpeek/dockpeek
     labels:
-      traefik.enable: true
-      traefik.http.routers.dockpeek.entrypoints: websecure
       traefik.http.routers.dockpeek.rule: Host(`dockpeek.${DOMAIN}`)
-      traefik.http.routers.dockpeek.loadbalancer.server.port: 8000
-    networks:
-      - core
+      traefik.http.services.dockpeek.loadbalancer.server.port: 8000
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -109,12 +101,8 @@ services:
       DOZZLE_ENABLE_SHELL: true
     image: amir20/dozzle
     labels:
-      traefik.enable: true
-      traefik.http.routers.dozzle.entrypoints: websecure
       traefik.http.routers.dozzle.rule: Host(`dozzle.${DOMAIN}`) || Host(`logs.${DOMAIN}`)
-      traefik.http.routers.dozzle.loadbalancer.server.port: 8080
-    networks:
-      - core
+      traefik.http.services.dozzle.loadbalancer.server.port: 8080
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -126,12 +114,11 @@ services:
       - host.docker.internal:host-gateway
     image: ghcr.io/gethomepage/homepage
     labels:
-      traefik.enable: true
       traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN}`) || Host(`dash.${DOMAIN}`)
-      traefik.http.routers.homepage.loadbalancer.server.port: 3000
+      traefik.http.services.homepage.loadbalancer.server.port: 3000
     networks:
       - app_default
-      - core
+      - core_default
       - data_default
       - media_default
       - telemetry_default
@@ -154,11 +141,8 @@ services:
       homepage.widget.key: ${PORTAINER_API_KEY:-}
       homepage.widget.type: portainer
       homepage.widget.url: http://portainer:9000
-      traefik.enable: true
       traefik.http.routers.portainer.rule: Host(`portainer.${DOMAIN}`)
       traefik.http.services.portainer.loadbalancer.server.port: 9000
-    networks:
-      - core
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/portainer:/data
@@ -175,6 +159,8 @@ services:
       TS_STATE_DIR: /var/lib/tailscale
     hostname: nexus
     image: tailscale/tailscale
+    labels:
+      traefik.enable: false
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
@@ -196,7 +182,6 @@ services:
       - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN}
       - --entrypoints.websecure.http.tls.domains[0].sans=*.nexus.${DOMAIN},*.${DOMAIN}
       - --entrypoints.websecure.http.tls=true
-      - --log.level=INFO
       - --providers.docker=true
       - --serverstransport.insecureskipverify=true
     container_name: traefik
@@ -211,19 +196,19 @@ services:
     labels:
       homepage.description: Reverse proxy for exposing apps via HTTPS
       homepage.group: Core
-      homepage.href: https://traefik.nexus.${DOMAIN}
+      homepage.href: https://traefik-2${DOMAIN}
       homepage.icon: traefik
-      homepage.name: Traefik (Nexus)
+      homepage.name: Traefik 2
       homepage.widget.type: traefik
       homepage.widget.url: http://host.docker.internal:8080
-      traefik.enable: true
-      traefik.http.routers.dashboard.rule: Host(`traefik.nexus.${DOMAIN}`)
+      traefik.http.routers.dashboard.rule: Host(`traefik-2.${DOMAIN}`) || Host(`traefik.nexus.${DOMAIN}`)
       traefik.http.routers.dashboard.service: api@internal
     networks:
       - app_default
-      - core
+      - core_default
       - data_default
       - media_default
+      - nexus_default
       - telemetry_default
     ports:
       - 8080:8080
@@ -250,8 +235,6 @@ services:
       homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
       homepage.widget.type: watchtower
       homepage.widget.url: http://watchtower:8080
-    networks:
-      - core
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

@@ -14,8 +14,8 @@ Born from consolidating numerous containers onto my TrueNAS server, this project
 
 ## Highlights
 
-- 🚀 One `nx start` to bootstrap every core service on a single host
-- 🧰 Dockge & Portainer UIs included for point-and-click orchestration
+- 🚀 Push to `nx start` (😅) simplicity for deploying dozens of containers on a single host
+- 🧰 Dockge & Portainer included for additional point-and-click controls
 - 🧱 Clearly separated stacks (`app`, `media`, `data`, etc.) for modular upgrades
 - 📊 First-class observability via Prometheus, Grafana, Loki, Dozzle, Beszel, & more!
 - 🗂️ Monorepo structure keeps Compose services, env vars, and docs in one place with many improvements to come
@@ -137,7 +137,6 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), o
 ### 📡 Telemetry
 
 - 📬 [Apprise](https://github.com/caronc/apprise) – Unified notification gateway triggered by alerting rules.
-- 🗺️ [Atlas](https://github.com/keinstien/atlas) – Live network map of containers, ports, and service health.
 - 🛰️ [Beszel](https://www.beszel.dev/) & Agent – Lightweight server monitoring.
 - 📦 [cAdvisor](https://github.com/google/cadvisor) – Container resource exporter feeding Prometheus.
 - 👀 [Glances](https://nicolargo.github.io/glances/) – Web dashboard for realtime host telemetry.

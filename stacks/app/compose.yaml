@@ -3,7 +3,6 @@ services:
     container_name: excalidraw
     image: excalidraw/excalidraw
     labels:
-      traefik.enable: true
       traefik.http.routers.excalidraw.rule: Host(`excalidraw.${DOMAIN:?no domain defined}`) || Host(`draw.${DOMAIN}`)
       traefik.http.services.excalidraw.loadbalancer.server.port: 80
     restart: unless-stopped
@@ -13,7 +12,6 @@ services:
     container_name: mytabs
     image: louislam/its-mytabs:1
     labels:
-      traefik.enable: true
       traefik.http.routers.mytabs.rule: Host(`mytabs.${DOMAIN:?no domain defined}`) || Host(`tabs.${DOMAIN:?no domain defined}`)
       traefik.http.services.mytabs.loadbalancer.server.port: 47777
     restart: unless-stopped
@@ -23,7 +21,6 @@ services:
     container_name: omni-tools
     image: iib0011/omni-tools
     labels:
-      traefik.enable: true
       traefik.http.routers.omni-tools.rule: Host(`omni-tools.${DOMAIN}`) || Host(`tools.${DOMAIN}`)
       traefik.http.services.omni-tools.loadbalancer.server.port: 80
     restart: unless-stopped

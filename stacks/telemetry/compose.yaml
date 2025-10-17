@@ -6,31 +6,12 @@ services:
     container_name: apprise
     image: caronc/apprise
     labels:
-      traefik.enable: true
       traefik.http.routers.apprise.middlewares: authelia@docker
       traefik.http.routers.apprise.rule: Host(`apprise.${DOMAIN:?no domain defined}`) || Host(`notify.${DOMAIN:?no domain defined}`)
       traefik.http.services.apprise.loadbalancer.server.port: 8000
     restart: unless-stopped
     volumes:
       - ${DATA_PATH:?data path not defined}/apprise:/config
-  atlas:
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    container_name: atlas
-    environment:
-      ATLAS_API_PORT: 8885
-      ATLAS_UI_PORT: 8884
-    image: keinstien/atlas
-    labels:
-      traefik.enable: true
-      traefik.http.routers.atlas.rule: Host(`atlas.${DOMAIN:?no domain defined}`)
-      traefik.http.services.atlas.loadbalancer.server.port: 8884
-      traefik.http.services.atlas.loadbalancer.server.url: http://host.docker.internal:8884
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
   beszel:
     container_name: beszel
     image: henrygd/beszel
@@ -46,7 +27,6 @@ services:
       homepage.widget.url: http://beszel:8090
       homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
       homepage.widget.version: 2
-      traefik.enable: true
       traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN}`)
     restart: unless-stopped
     volumes:
@@ -91,7 +71,6 @@ services:
       homepage.widget.type: glances
       homepage.widget.url: http://glances:61208
       homepage.widget.version: 4
-      traefik.enable: true
       traefik.http.routers.glances.rule: Host(`glances.${DOMAIN}`)
       traefik.http.services.glances.loadbalancer.server.port: 61208
     pid: host
@@ -120,7 +99,6 @@ services:
       homepage.widget.type: grafana
       homepage.widget.url: http://grafana:3000
       homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
-      traefik.enable: true
       traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN}`) || Host(`dashboards.${DOMAIN}`)
       traefik.http.services.grafana.loadbalancer.server.port: 3000
     restart: unless-stopped
@@ -132,7 +110,6 @@ services:
     container_name: harborguard
     image: ghcr.io/harborguard/harborguard
     labels:
-      traefik.enable: true
       traefik.http.routers.harborguard.rule: Host(`harborguard.${DOMAIN}`)
       traefik.http.services.harborguard.loadbalancer.server.port: 3000
     privileged: true
@@ -148,6 +125,8 @@ services:
     devices:
       - /dev/dri:/dev/dri
     image: ghcr.io/clambin/intel-gpu-exporter
+    labels:
+      traefik.enable: false
     pid: host
     privileged: true
     restart: unless-stopped
@@ -159,9 +138,10 @@ services:
       PROMETHEUS_URL: "http://prometheus:9090"
     image: ghcr.io/kashalls/kromgo
     labels:
-      traefik.enable: true
-      traefik.http.routers.kromgo.loadbalancer.server.port: 8080
       traefik.http.routers.kromgo.rule: Host(`kromgo.${DOMAIN}`) || Host(`stat.${DOMAIN}`)
+      traefik.http.services.kromgo.loadbalancer.server.port: 8080
+    ports:
+      - 8082:8080
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml
@@ -172,6 +152,8 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     image: ghcr.io/clemcer/loggifly
+    labels:
+      traefik.enable: false
     read_only: true
     restart: unless-stopped
     user: 1000:1000
@@ -191,6 +173,8 @@ services:
       - --path.sysfs=/host/sys
     container_name: node-exporter
     image: quay.io/prometheus/node-exporter
+    labels:
+      traefik.enable: false
     network_mode: host
     pid: host
     restart: unless-stopped
@@ -204,6 +188,8 @@ services:
       PLEX_SERVER: "http://192.168.0.3:32400"
       PLEX_TOKEN: "${PLEX_TOKEN:?no plex token defined}"
     image: ghcr.io/timothystewart6/prometheus-plex-exporter
+    labels:
+      traefik.enable: false
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -230,7 +216,6 @@ services:
       homepage.name: Prometheus
       homepage.widget.type: prometheus
       homepage.widget.url: http://prometheus:9090
-      traefik.enable: true
       traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN}`)
     restart: unless-stopped
     volumes:
@@ -242,6 +227,8 @@ services:
     environment:
       PROMTAIL_CONFIG_FILE: /etc/promtail/config.yml
     image: grafana/promtail
+    labels:
+      traefik.enable: false
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/promtail/data:/var/lib/promtail/positions
