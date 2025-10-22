@@ -29,6 +29,7 @@ FOLLOW_LOGS=0
 BACKUP_FILE=""
 SSH_HOST=""
 ASSUME_YES=0
+SERVICE_ARG=""
 
 COMMAND_ORDER=(
   help
@@ -155,6 +156,16 @@ select_stacks() {
   else
     TARGET_STACKS=("${STACKS[@]}")
   fi
+
+  if [[ -n "$SERVICE_ARG" ]]; then
+    if [[ -z "$STACK_ARG" ]]; then
+      log_error "--name requires --stack"
+      exit 1
+    fi
+    if ((${#TARGET_STACKS[@]} != 1)); then
+      TARGET_STACKS=("$STACK_ARG")
+    fi
+  fi
 }
 
 compose_within_stack() {
@@ -255,6 +266,7 @@ EOF
 
 Common options:
   -s, --stack <name>     Target a single stack (default: all stacks)
+  -n, --name <name>      Target a single service within the selected stack
   -f, --follow           Follow logs (only for logs/tail)
   -F, --file <archive>   Backup archive for restore
   -H, --host <hostname>  SSH host (default: nexus)
@@ -397,6 +409,20 @@ cmd_list_services() {
 cmd_status() {
   ensure_compose
   select_stacks
+  if [[ -n "$STACK_ARG" ]]; then
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Status for $STACK_ARG/$SERVICE_ARG:"
+      if ! compose_within_stack "$STACK_ARG" ps --format table "$SERVICE_ARG"; then
+        log_error "Failed to get status for $STACK_ARG/$SERVICE_ARG"
+      fi
+    else
+      log_info "Status for $STACK_ARG stack:"
+      if ! compose_within_stack "$STACK_ARG" ps --format table; then
+        log_error "Failed to get status for $STACK_ARG"
+      fi
+    fi
+    return
+  fi
   log_info "Stack Status Overview"
   printf "${YELLOW}====================${NC}\n"
   local stack
@@ -414,8 +440,13 @@ cmd_pull() {
   select_stacks
   local stack
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "Pulling images for $STACK_ARG..."
-    compose_within_stack "$STACK_ARG" pull
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Pulling image for $SERVICE_ARG in $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" pull "$SERVICE_ARG"
+    else
+      log_info "Pulling images for $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" pull
+    fi
   else
     log_info "Pulling latest images for all stacks..."
     for stack in "${TARGET_STACKS[@]}"; do
@@ -431,9 +462,15 @@ cmd_start() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "Starting $STACK_ARG..."
-    compose_within_stack "$STACK_ARG" up -d --remove-orphans
-    log_success "$STACK_ARG stack started"
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Starting $SERVICE_ARG in $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" up -d --remove-orphans "$SERVICE_ARG"
+      log_success "$SERVICE_ARG service started"
+    else
+      log_info "Starting $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" up -d --remove-orphans
+      log_success "$STACK_ARG stack started"
+    fi
     return
   fi
   log_info "Starting all stacks..."
@@ -453,9 +490,15 @@ cmd_stop() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "Stopping $STACK_ARG..."
-    compose_within_stack "$STACK_ARG" down
-    log_success "$STACK_ARG stack stopped"
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Stopping $SERVICE_ARG in $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" stop "$SERVICE_ARG"
+      log_success "$SERVICE_ARG service stopped"
+    else
+      log_info "Stopping $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" down
+      log_success "$STACK_ARG stack stopped"
+    fi
     return
   fi
   log_info "Stopping all stacks..."
@@ -474,10 +517,16 @@ cmd_restart() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "Restarting $STACK_ARG..."
-    compose_within_stack "$STACK_ARG" down
-    compose_within_stack "$STACK_ARG" up -d --remove-orphans
-    log_success "$STACK_ARG stack restarted"
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Restarting $SERVICE_ARG in $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" restart "$SERVICE_ARG"
+      log_success "$SERVICE_ARG service restarted"
+    else
+      log_info "Restarting $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" down
+      compose_within_stack "$STACK_ARG" up -d --remove-orphans
+      log_success "$STACK_ARG stack restarted"
+    fi
     return
   fi
   log_info "Restarting all stacks..."
@@ -489,11 +538,23 @@ cmd_logs() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "$STACK_ARG stack logs:"
-    if (( FOLLOW_LOGS )); then
-      compose_within_stack "$STACK_ARG" logs -f
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "$STACK_ARG/$SERVICE_ARG logs:"
     else
-      compose_within_stack "$STACK_ARG" logs --tail=50
+      log_info "$STACK_ARG stack logs:"
+    fi
+    if (( FOLLOW_LOGS )); then
+      if [[ -n "$SERVICE_ARG" ]]; then
+        compose_within_stack "$STACK_ARG" logs -f "$SERVICE_ARG"
+      else
+        compose_within_stack "$STACK_ARG" logs -f
+      fi
+    else
+      if [[ -n "$SERVICE_ARG" ]]; then
+        compose_within_stack "$STACK_ARG" logs --tail=50 "$SERVICE_ARG"
+      else
+        compose_within_stack "$STACK_ARG" logs --tail=50
+      fi
     fi
     return
   fi
@@ -534,9 +595,16 @@ cmd_health() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "$STACK_ARG stack health:"
-    if ! compose_within_stack "$STACK_ARG" ps --format table --filter "status=running" | grep -E "(healthy|unhealthy)" || true; then
-      echo "No health checks configured"
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Health for $STACK_ARG/$SERVICE_ARG:"
+      if ! compose_within_stack "$STACK_ARG" ps --format table --filter "status=running" "$SERVICE_ARG" | grep -E "(healthy|unhealthy)" || true; then
+        echo "No health checks configured"
+      fi
+    else
+      log_info "$STACK_ARG stack health:"
+      if ! compose_within_stack "$STACK_ARG" ps --format table --filter "status=running" | grep -E "(healthy|unhealthy)" || true; then
+        echo "No health checks configured"
+      fi
     fi
     return
   fi
@@ -644,6 +712,10 @@ cmd_update() {
 }
 
 cmd_dev_mode() {
+  if [[ -n "$SERVICE_ARG" ]]; then
+    log_error "--name is not supported for dev-mode"
+    exit 1
+  fi
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
@@ -679,9 +751,15 @@ cmd_quick_restart() {
   ensure_compose
   select_stacks
   if [[ -n "$STACK_ARG" ]]; then
-    log_info "Quick restarting $STACK_ARG..."
-    compose_within_stack "$STACK_ARG" restart
-    log_success "$STACK_ARG quick restart completed"
+    if [[ -n "$SERVICE_ARG" ]]; then
+      log_info "Quick restarting $STACK_ARG/$SERVICE_ARG..."
+      compose_within_stack "$STACK_ARG" restart "$SERVICE_ARG"
+      log_success "$SERVICE_ARG quick restart completed"
+    else
+      log_info "Quick restarting $STACK_ARG..."
+      compose_within_stack "$STACK_ARG" restart
+      log_success "$STACK_ARG quick restart completed"
+    fi
     return
   fi
   log_info "Quick restarting all stacks..."
@@ -743,6 +821,22 @@ parse_args() {
         STACK_ARG="${1#*=}"
         if [[ -z "$STACK_ARG" ]]; then
           log_error "--stack requires an argument"
+          exit 1
+        fi
+        shift
+        ;;
+      -n|--name)
+        SERVICE_ARG="${2:-}"
+        if [[ -z "$SERVICE_ARG" ]]; then
+          log_error "--name requires an argument"
+          exit 1
+        fi
+        shift 2
+        ;;
+      --name=*)
+        SERVICE_ARG="${1#*=}"
+        if [[ -z "$SERVICE_ARG" ]]; then
+          log_error "--name requires an argument"
           exit 1
         fi
         shift
