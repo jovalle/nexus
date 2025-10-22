@@ -1,4 +1,13 @@
 services:
+  agregarr:
+    container_name: agregarr
+    image: agregarr/agregarr
+    labels:
+      traefik.http.routers.agregarr.rule: Host(`agregarr.${DOMAIN}`) || Host(`extras.watchtower.${DOMAIN}`)
+      traefik.http.services.agregarr.loadbalancer.server.port: 7171
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH:?data path not defined}/agregarr:/app/config
   bazarr:
     container_name: bazarr
     environment: &a1
@@ -24,7 +33,7 @@ services:
       traefik.http.services.bazarr.loadbalancer.server.port: 6767
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH:?data path not defined}/bazarr:/config
+      - ${DATA_PATH}/bazarr:/config
       - ${MEDIA_PATH:?media path not defined}/movies:/movies
       - ${MEDIA_PATH}/series:/series
   flaresolverr:
