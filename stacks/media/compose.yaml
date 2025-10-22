@@ -8,6 +8,16 @@ services:
     restart: unless-stopped
     volumes:
       - ${DATA_PATH:?data path not defined}/agregarr:/app/config
+  audiodeck:
+    image: casantosmu/audiodeck
+    container_name: audiodeck
+    labels:
+      traefik.http.routers.audiodeck.rule: Host(`audiodeck.${DOMAIN}`)
+      traefik.http.services.audiodeck.loadbalancer.server.port: 4747
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
   bazarr:
     container_name: bazarr
     environment: &a1
@@ -34,7 +44,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/bazarr:/config
-      - ${MEDIA_PATH:?media path not defined}/movies:/movies
+      - ${MEDIA_PATH}/movies:/movies
       - ${MEDIA_PATH}/series:/series
   flaresolverr:
     container_name: flaresolverr
