@@ -217,6 +217,20 @@ services:
     volumes:
       - ${DATA_PATH}/letsencrypt:/etc/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  trala:
+    container_name: trala
+    environment:
+      LOG_LEVEL: info
+      REFRESH_INTERVAL_SECONDS: 30
+      SEARCH_ENGINE_URL: "https://duckduckgo.com/?q:"
+      TRAEFIK_API_HOST: http://traefik:8080
+    image: ghcr.io/dannybouwers/trala
+    labels:
+      traefik.http.routers.trala.rule: Host(`trala.${DOMAIN}`)
+      traefik.http.services.trala.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/trala/configuration.yml:/config/configuration.yml:ro
   watchtower:
     container_name: watchtower
     environment:
