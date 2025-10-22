@@ -24,7 +24,7 @@ services:
       homepage.group: Core
       homepage.href: https://adguard.nexus.${DOMAIN:?no domain defined}
       homepage.icon: adguard-home
-      homepage.name: AdGuard Home (Secondary)
+      homepage.name: AdGuard Home 2
       homepage.widget.password: ${ADMIN_PASSWORD:?admin password not defined}
       homepage.widget.type: adguard
       homepage.widget.url: http://adguard

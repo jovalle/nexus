@@ -99,11 +99,6 @@ services:
       - ${MEDIA_PATH:?media path not defined}:/media:ro
   lidarr:
     container_name: lidarr
-    depends_on:
-      prowlarr:
-        condition: service_started
-      qbittorrent:
-        condition: service_started
     environment:
       <<: *a1
     image: lscr.io/linuxserver/lidarr
@@ -209,9 +204,9 @@ services:
       traefik.http.routers.profilarr.middlewares: authelia@docker
       traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN}`)
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
-    restart: unless-stopped
     ports:
       - 6868:6868
+    restart: unless-stopped
     volumes:
       - ${DATA_PATH}/profilarr:/config
   prowlarr:
@@ -267,13 +262,6 @@ services:
       - ${MEDIA_PATH}/downloads:/downloads
   radarr:
     container_name: radarr
-    depends_on:
-      prowlarr:
-        condition: service_started
-      qbittorrent:
-        condition: service_started
-      sabnzbd:
-        condition: service_started
     environment:
       <<: *a1
     image: lscr.io/linuxserver/radarr
@@ -323,13 +311,6 @@ services:
       - ${MEDIA_PATH}/downloads:/downloads
   sonarr:
     container_name: sonarr
-    depends_on:
-      prowlarr:
-        condition: service_started
-      qbittorrent:
-        condition: service_started
-      sabnzbd:
-        condition: service_started
     environment:
       <<: *a1
     image: lscr.io/linuxserver/sonarr

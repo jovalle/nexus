@@ -39,6 +39,8 @@ services:
       KEY: ${BESZEL_AGENT_KEY:?beszel agent key not defined}
       LISTEN: 45876
     image: henrygd/beszel-agent
+    labels:
+      traefik.enable: false
     network_mode: host
     restart: unless-stopped
     volumes:
