@@ -27,18 +27,22 @@ services:
       homepage.widget.url: http://beszel:8090
       homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
       homepage.widget.version: 2
-      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN}`)
+      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN}`) || Host(`dash.${DOMAIN}`)
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/beszel/data:/beszel_data
   beszel-agent:
+    cap_add:
+      - CAP_PERFMON
     container_name: beszel-agent
     depends_on:
       - beszel
+    devices:
+      - /dev/dri/card0:/dev/dri/card0
     environment:
       KEY: ${BESZEL_AGENT_KEY:?beszel agent key not defined}
       LISTEN: 45876
-    image: henrygd/beszel-agent
+    image: henrygd/beszel-agent-intel
     labels:
       traefik.enable: false
     network_mode: host
