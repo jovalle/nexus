@@ -5,11 +5,11 @@ networks:
     external: true
   data_default:
     external: true
+  log_default:
+    external: true
   media_default:
     external: true
   nexus_default:
-    external: true
-  telemetry_default:
     external: true
 services:
   adguard:
@@ -120,8 +120,8 @@ services:
       - app_default
       - core_default
       - data_default
+      - log_default
       - media_default
-      - telemetry_default
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/homepage:/app/config
@@ -207,9 +207,9 @@ services:
       - app_default
       - core_default
       - data_default
+      - log_default
       - media_default
       - nexus_default
-      - telemetry_default
     ports:
       - 8080:8080
       - 8443:443

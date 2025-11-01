@@ -17,7 +17,7 @@ services:
     image: henrygd/beszel
     labels:
       homepage.description: Lightweight server monitoring platform
-      homepage.group: Telemetry
+      homepage.group: Log
       homepage.href: https://beszel.${DOMAIN:?no domain defined}
       homepage.icon: beszel
       homepage.name: Beszel
@@ -65,7 +65,7 @@ services:
     image: nicolargo/glances
     labels:
       homepage.description: System Monitoring Tool
-      homepage.group: Telemetry
+      homepage.group: Log
       homepage.href: https://glances.${DOMAIN}
       homepage.icon: glances
       homepage.name: Glances
@@ -92,7 +92,7 @@ services:
     image: grafana/grafana
     labels:
       homepage.description: Metrics Visualizer
-      homepage.group: Telemetry
+      homepage.group: Log
       homepage.href: https://grafana.${DOMAIN}
       homepage.icon: grafana
       homepage.name: Grafana
@@ -212,7 +212,7 @@ services:
     image: prom/prometheus
     labels:
       homepage.description: Metrics collection
-      homepage.group: Telemetry
+      homepage.group: Log
       homepage.href: https://prometheus.${DOMAIN}
       homepage.icon: prometheus
       homepage.name: Prometheus
