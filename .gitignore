@@ -1,7 +1,9 @@
+.direnv/
 .DS_Store
 .env
 * copy.yaml
 *.env
+backups/
 data/dockge.db
 data/dockge.db-shm
 data/dockge.db-wal

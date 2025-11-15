@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+sudo -u jay /home/linuxbrew/.linuxbrew/bin/brew "$@"

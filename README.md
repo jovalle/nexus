@@ -12,6 +12,20 @@
 
 Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing catalog using Docker Compose stacks.
 
+## ⚠️ Disclaimer
+
+**IMPORTANT**: Running custom commands and containers on TrueNAS SCALE is against the intent of iX-Systems and its developers. TrueNAS SCALE is designed to be managed through its web interface and official applications ecosystem.
+
+**By using this project, you acknowledge that:**
+
+- ⚠️ You are proceeding at your own risk
+- 🚫 I hold no responsibility for any damage, data loss, or system instability incurred by the usage of this project
+- 🛡️ This may void support from iX-Systems
+- ⚙️ System updates may break custom configurations
+- 🧪 You should proceed with caution and maintain proper backups
+
+**Use this project only if you understand the risks and accept full responsibility for your system.**
+
 ## 🚀 Highlights
 
 - 🚀 Push to `nx start` (😅) simplicity for deploying dozens of containers on a single host
@@ -33,19 +47,44 @@ Born from consolidating numerous containers onto my TrueNAS server, this project
 
 ## 🛠️ Getting Started
 
-### Install
+> 📖 **Detailed Setup Guide**: See [SETUP.md](SETUP.md) for comprehensive setup instructions and troubleshooting.
+
+### Quick Setup
+
+For first-time setup with automated environment configuration:
 
 1. Clone the repository:
 
    ```sh
    git clone https://github.com/jovalle/nexus
    cd nexus
-   ./nx alias
    ```
 
-2. Review `.env` files inside each stack and adjust values to match your environment (paths, credentials, network details).
+2. Run the automated setup (installs Homebrew and required tools):
 
-3. Launch everything:
+   ```sh
+   sudo ./scripts/setup.sh jay  # Replace 'jay' with your username
+   # Or set via environment variable:
+   # sudo NEXUS_USER=jay ./scripts/setup.sh
+   ```
+
+   This will:
+   - Install Homebrew (Linuxbrew) configured for the specified user
+   - Install required tools like `direnv`, `fzf`, `jq`, and `yq`
+   - Set up `direnv` for automatic environment loading
+   - Configure tab completion for the `nx` command
+
+3. Allow direnv and activate the environment:
+
+   ```sh
+   direnv allow .
+   ```
+
+   The `nx` command will now be in your PATH with intelligent tab completion!
+
+4. Review `.env` files inside each stack and adjust values to match your environment (paths, credentials, network details).
+
+5. Launch everything:
 
    ```sh
    nx start
@@ -53,19 +92,93 @@ Born from consolidating numerous containers onto my TrueNAS server, this project
 
    > 🧬 Migrating to/from TrueNAS? Change `DATA_PATH` and Nexus will feel instantly familiar.
 
-4. Open Dockge (exposed via the root stack) to configure and monitor stacks.
+6. Open Dockge (exposed via the root stack) to configure and monitor stacks.
 
 > 🛠️ Prefer Portainer? It is included under the `core` stack. Open its web UI, import the Compose files, and manage stacks from there.
 
+### Manual Setup
+
+If you prefer manual installation or already have the required tools:
+
+1. Clone the repository:
+
+   ```sh
+   git clone https://github.com/jovalle/nexus
+   cd nexus
+   ```
+
+2. Install prerequisites:
+
+   ```sh
+   # Install direnv (for automatic environment loading)
+   brew install direnv
+   
+   # Install fzf (for enhanced tab completion)
+   brew install fzf
+   
+   # Add direnv hook to your shell
+   echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc  # for zsh
+   # or
+   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # for bash
+   
+   # Reload your shell
+   source ~/.zshrc  # or source ~/.bashrc
+   ```
+
+3. Allow direnv to load the environment:
+
+   ```sh
+   direnv allow .
+   ```
+
+4. Review `.env` files and adjust as needed.
+
+5. Launch stacks using the `nx` command:
+
+   ```sh
+   nx start
+   ```
+
+### nx CLI Features
+
+The `nx` command provides a powerful interface for managing your Docker stacks:
+
+- **Tab Completion**: Press `Tab` after typing `nx` to see available commands and stacks
+- **fzf Integration**: Press `Ctrl+Space` for interactive fuzzy-search selection of commands
+- **Dynamic Help**: Command descriptions are auto-generated from the script itself
+- **Stack-aware**: Automatically detects stacks in the `stacks/` directory
+
+Example commands:
+
+```sh
+nx help              # Show all available commands
+nx list              # List all available stacks
+nx start             # Start all stacks
+nx start media       # Start only the media stack
+nx stop core         # Stop the core stack
+nx logs app -f       # Follow logs for app stack
+nx status            # Show status of all stacks
+nx update            # Update all containers to latest versions
+nx fmt               # Update README with current service listings
+nx backup            # Create backup of all configurations
+nx validate          # Validate all compose files
+```
+
 ### Updating
 
-Manual refresh:
+Update the service listings in README:
+
+```sh
+nx fmt
+```
+
+Update containers to latest versions:
 
 ```sh
 nx update
 ```
 
-Automated updates via [Watchtower](https://containrrr.dev/watchtower/).
+Automated updates are handled by [Watchtower](https://containrrr.dev/watchtower/).
 
 ## 📁 Project Structure
 
@@ -91,88 +204,24 @@ This repository is structured for use with [Dockge](https://dockge.kuma.pet/), o
 
 ### 🐋 Root
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [Dockge](https://github.com/louislam/dockge) | Web UI tool to spin up and orchestrate Docker "stacks" from consolidated configs | - |
+[**Dockge**](https://dockge.kuma.pet/) - Docker GUI
 
 ### 🧩 App
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [Excalidraw](https://excalidraw.com) | Collaborative whiteboard for sketching infrastructure ideas | - |
-| [MyTabs](https://github.com/louislam/its-mytabs) | Handy web UI for storing and reading guitar tabs | - |
-| [Omni Tools](https://github.com/iib0011/omni-tools) | Swiss-army web toolbox for quick conversions and utilities | - |
+**Excalidraw** • **Mytabs** • **Omni-tools** • **Searxng**
 
-### 🔗 Core
+### 🔧 Core
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) | Network-wide ad/blocking DNS server | - |
-| [Authelia](https://www.authelia.com/) | Single sign-on, MFA, and access policies for protected services | - |
-| [Docker Socket Proxy](https://github.com/tecnativa/docker-socket-proxy) | Exposes docker socket securely | - |
-| [Dockpeek](https://github.com/dockpeek/dockpeek) | Container inventory explorer with resource insights | - |
-| [Dozzle](https://github.com/amir20/dozzle) | Realtime container log streaming from the browser | - |
-| [Homepage](https://gethomepage.dev/) | Central landing page to quickly glance and navigate services | - |
-| [Portainer](https://www.portainer.io) | GUI for managing Docker environments & stacks | - |
-| [Tailscale](https://tailscale.com/) | Mesh VPN for remote access into the homelab | - |
-| [Traefik](https://traefik.io) | Dynamic reverse-proxy & load-balancer for HTTP/TCP services | - |
-| [Watchtower](https://containrrr.dev/watchtower/) | Automated container image updates with optional health checks | - |
+**Adguard** - Ad-Blocking DNS Server • **Authelia** • **Docker-socket-proxy** • **Dockpeek** • **Dozzle** • **Homepage** • **Portainer** - Container Management • **Tailscale** • **Traefik** - Reverse proxy for exposing apps via HTTPS • **Trala** • **Watchtower**
 
-### 🗄️ Data
+### 💾 Data
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [Gotenberg](https://gotenberg.dev/) | API for converting HTML and Markdown to PDF | - |
-| [Immich](https://immich.app) | Personal photo and video backup and gallery | - |
-| [Immich Machine Learning](https://github.com/immich-app/immich-machine-learning) | Machine learning service for image recognition in Immich | - |
-| [MariaDB](https://mariadb.org) | MySQL-compatible relational database | - |
-| [Nextcloud](https://nextcloud.com) | Sync and collaboration hub for files, calendars, and contacts | - |
-| [Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) | Document management system for scanning, indexing, and archiving | - |
-| [pgAdmin](https://www.pgadmin.org) | Web-based GUI to manage PostgreSQL instances | - |
-| [PostgreSQL](https://www.postgresql.org) | Reliable relational SQL database | - |
-| [Redis](https://redis.io) | In-memory key-value store for caching and fast data access | - |
-| [Syncthing](https://syncthing.net) | Continuous file synchronization across devices | - |
-| [Apache Tika](https://tika.apache.org) | Text extraction from documents such as PDF and DOCX | - |
-| [Valkey](https://github.com/louislam/valkey) | A successor of Redis with notable gains in performance and usability | - |
+**Gotenberg** • **Immich** - Photo management and backup • **Immich-machine-learning** • **Mariadb** • **Nextcloud** - Cloud storage and collaboration • **Paperless** - Paperless Document Management • **Pgadmin** - PostgreSQL Management Tool • **Postgres** • **Redis** • **Syncthing** - File synchronization • **Tika** • **Valkey**
 
 ### 📊 Log
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [Apprise](https://github.com/caronc/apprise) | Unified notification gateway triggered by alerting rules | - |
-| [Beszel](https://www.beszel.dev/) & Agent | Lightweight server monitoring | - |
-| [cAdvisor](https://github.com/google/cadvisor) | Container resource exporter feeding Prometheus | - |
-| [Glances](https://nicolargo.github.io/glances/) | Web dashboard for realtime host log | - |
-| [Grafana](https://grafana.com) | Visualizations & dashboards for metrics | - |
-| [HarborGuard](https://github.com/harborguard/harborguard) | Container security cockpit tracking images, CVEs, and drifts | - |
-| [Intel GPU Exporter](https://github.com/clambin/intel-gpu-exporter) | Prometheus exporter for Intel iGPU utilization | - |
-| [Kromgo](https://github.com/kashalls/kromgo) | When-things-go-wrong status page powered by Prometheus data | - |
-| [Loggifly](https://github.com/ClemCer/loggifly) | Keyword-driven log watcher with Apprise notifications | - |
-| [Loki](https://grafana.com/oss/loki) | Log aggregation system designed to work with Grafana | - |
-| [Node Exporter](https://github.com/prometheus/node_exporter) | Host-level CPU, memory, and filesystem metrics | - |
-| [Plex Exporter](https://github.com/timothystewart6/prometheus-plex-exporter) | Prometheus metrics for Plex activity | - |
-| [Prometheus](https://prometheus.io) | Time-series database & alerting | - |
-| [Promtail](https://grafana.com/oss/loki) | Agent to collect & ship logs into Loki | - |
-| [SMARTctl Exporter](https://github.com/prometheus-community/smartctl_exporter) | Disk SMART health metrics for Prometheus | - |
+**Apprise** • **Beszel** - Lightweight server monitoring platform • **Beszel-agent** • **Cadvisor** • **Glances** - System Monitoring Tool • **Grafana** - Metrics Visualizer • **Harborguard** • **Intel-gpu-exporter** • **Kromgo** • **Loggifly** • **Loki** • **Node-exporter** • **Ntfy** • **Plex-exporter** • **Prometheus** - Metrics collection • **Promtail** • **Smartctl-exporter**
 
-### 📺 Media
+### 🎬 Media
 
-| Service | Purpose | Notes |
-|---------|---------|-------|
-| [Bazarr](https://github.com/morpheus65535/bazarr) | Subtitle manager for Sonarr, Radarr and Lidarr; automates searching and syncing of subtitles across your media libraries | - |
-| [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) | Proxy server to bypass Cloudflare protections; enables headless browsers and scripts to solve challenges and access protected web content | - |
-| [Gluetun](https://github.com/qdm12/gluetun) | VPN client container supporting multiple providers, DNS-over-TLS, ad-blocking and firewall rules to secure and privatize all traffic | - |
-| [Jellyfin](https://jellyfin.org) | Open source media system for managing and streaming media | - |
-| [Lidarr](https://github.com/lidarr/Lidarr) | Music collection manager for Usenet and BitTorrent; monitors artist releases and organizes new tracks in your library | - |
-| [Navidrome](https://www.navidrome.org) | Music server for streaming FLAC/MP3 collections | - |
-| [Overseerr](https://github.com/sct/overseerr) | User-friendly media request management for movies and TV; integrates with Plex, Sonarr and Radarr for automated approval workflows | - |
-| [Plex](https://www.plex.tv) | Media server for organizing and streaming movies and TV shows | - |
-| [Profilarr](https://github.com/OMGDON203/profilarr) | Profile synchronizer for Sonarr, Radarr and Lidarr; ensures consistent indexer profiles and search settings across all apps | - |
-| [Prowlarr](https://github.com/Prowlarr/Prowlarr) | Central indexer manager for Usenet and torrent trackers; streamlines setup of indexers for Sonarr, Radarr, Lidarr and more | - |
-| [qBittorrent](https://www.qbittorrent.org/) | Lightweight, cross-platform BitTorrent client with Web UI, RSS feed support and integrated search for peer-to-peer transfers | - |
-| [Radarr](https://github.com/Radarr/Radarr) | Movie collection manager for Usenet and BitTorrent; monitors film releases and organizes your movie library | - |
-| [SABnzbd](https://sabnzbd.org/) | Python-based Usenet client; automates NZB handling, queuing and archive extraction for hassle-free binary newsreading | - |
-| [Sonarr](https://github.com/Sonarr/Sonarr) | TV series manager that monitors RSS feeds for new episodes, organizes and renames shows using your configured indexers | - |
-| [Tautulli](https://github.com/Tautulli/Tautulli) | Plex Media Server monitoring and analytics; tracks usage, sends notifications and generates customizable reports | - |
-| [Unpackerr](https://github.com/htpcjunkie/unpackerr) | Archive automation tool; watches completed transfers, extracts archives and returns processed items to your client | - |
-| [Wizarr](https://github.com/wizarrrr/wizarr) | Automated invitation and onboarding system for Plex, Jellyfin and Emby; simplifies user invites and guides them through setup | - |
+**Agregarr** • **Audiodeck** • **Bazarr** - Subtitle Curator • **Flaresolverr** • **Gluetun** - VPN client for containers • **Jellyfin** - Media Server • **Lidarr** - Personal Music Curator • **Navidrome** - Personal Music Streamer • **Overseerr** - Media Server Request Management • **Plex** - Media Server • **Profilarr** - Profile Management for *arrs • **Prowlarr** - Indexer Manager for *arrs • **Qbittorrent** - BitTorrent client for ISOs • **Radarr** - Personal Movie Curator • **Sabnzbd** - Binary Newsreader • **Sonarr** - Personal Series Curator • **Tautulli** - Media Server Companion • **Unpackerr** • **Wizarr**
