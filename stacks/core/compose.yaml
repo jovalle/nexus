@@ -154,7 +154,7 @@ services:
     container_name: tailscale
     environment:
       TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
-      TS_EXTRA_ARGS: "--accept-routes=true --advertise-routes=192.168.0.0/24 --advertise-exit-node=true"
+      TS_EXTRA_ARGS: "--accept-routes=true --advertise-routes=192.168.10.0/24 --advertise-exit-node=true"
       TS_SOCKET: /var/run/tailscale/tailscaled.sock
       TS_STATE_DIR: /var/lib/tailscale
     hostname: nexus

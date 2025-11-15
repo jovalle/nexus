@@ -12,7 +12,7 @@ services:
     container_name: mytabs
     image: louislam/its-mytabs:1
     labels:
-      traefik.http.routers.mytabs.rule: Host(`mytabs.${DOMAIN:?no domain defined}`) || Host(`tabs.${DOMAIN:?no domain defined}`)
+      traefik.http.routers.mytabs.rule: Host(`mytabs.${DOMAIN}`) || Host(`tabs.${DOMAIN}`)
       traefik.http.services.mytabs.loadbalancer.server.port: 47777
     restart: unless-stopped
     volumes:
@@ -24,3 +24,14 @@ services:
       traefik.http.routers.omni-tools.rule: Host(`omni-tools.${DOMAIN}`) || Host(`tools.${DOMAIN}`)
       traefik.http.services.omni-tools.loadbalancer.server.port: 80
     restart: unless-stopped
+  searxng:
+    container_name: searxng
+    image: searxng/searxng
+    labels:
+      traefik.http.routers.searxng.rule: Host(`search.${DOMAIN}`)
+      traefik.http.services.searxng.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/searxng:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=https://search.${DOMAIN}/

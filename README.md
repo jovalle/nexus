@@ -112,15 +112,15 @@ If you prefer manual installation or already have the required tools:
    ```sh
    # Install direnv (for automatic environment loading)
    brew install direnv
-   
+
    # Install fzf (for enhanced tab completion)
    brew install fzf
-   
+
    # Add direnv hook to your shell
    echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc  # for zsh
    # or
    echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # for bash
-   
+
    # Reload your shell
    source ~/.zshrc  # or source ~/.bashrc
    ```
