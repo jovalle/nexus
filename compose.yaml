@@ -1,9 +1,340 @@
 services:
+  adguard:
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: adguard
+    dns:
+      - 76.76.2.2
+      - 76.76.10.2
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1" ]
+      timeout: 10s
+    hostname: adguard
+    image: adguard/adguardhome
+    labels:
+      homepage.description: Ad-Blocking DNS Server
+      homepage.group: Core
+      homepage.href: https://adguard.nexus.${DOMAIN:?no domain defined}
+      homepage.icon: adguard-home
+      homepage.name: AdGuard Home 2
+      homepage.widget.password: ${ADMIN_PASSWORD:?admin password not defined}
+      homepage.widget.type: adguard
+      homepage.widget.url: http://adguard
+      homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
+      traefik.enable: true
+      traefik.http.routers.adguard.rule: Host(`adguard-2.${DOMAIN}`) || Host(`adguard.nexus.${DOMAIN}`)
+      traefik.http.services.adguard.loadbalancer.server.port: 80
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      - 853:853/tcp
+      - 853:853/udp
+      - 3000:3000/tcp
+      - 5443:5443/tcp
+      - 5443:5443/udp
+      - 6061:6060/tcp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
+      - ${DATA_PATH}/adguard/work:/opt/adguardhome/work
+  agregarr:
+    # nx:root-allowed - handles user switching internally
+    cap_drop:
+      - ALL
+    container_name: agregarr
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:7171 || exit 1" ]
+      timeout: 10s
+    image: agregarr/agregarr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.agregarr.rule: Host(`agregarr.${DOMAIN}`) || Host(`extras.watchtower.${DOMAIN}`)
+      traefik.http.services.agregarr.loadbalancer.server.port: 7171
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH:?data path not defined}/agregarr:/app/config
+  apprise:
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: apprise
+    environment:
+      PGID: 1000
+      PUID: 1000
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8000 || exit 1" ]
+      timeout: 10s
+    image: caronc/apprise
+    labels:
+      traefik.enable: true
+      traefik.http.routers.apprise.middlewares: authelia@docker
+      traefik.http.routers.apprise.rule: Host(`apprise.${DOMAIN:?no domain defined}`) || Host(`notify.${DOMAIN:?no domain defined}`)
+      traefik.http.services.apprise.loadbalancer.server.port: 8000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH:?data path not defined}/apprise:/config
+  audiodeck:
+    cap_drop:
+      - ALL
+    container_name: audiodeck
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4747 || exit 1" ]
+      timeout: 10s
+    image: casantosmu/audiodeck
+    labels:
+      traefik.enable: true
+      traefik.http.routers.audiodeck.rule: Host(`audiodeck.${DOMAIN}`)
+      traefik.http.services.audiodeck.loadbalancer.server.port: 4747
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    volumes:
+      - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
+  authelia:
+    cap_add:
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: authelia
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9091/api/health || exit 1" ]
+      timeout: 10s
+    image: authelia/authelia
+    labels:
+      traefik.enable: true
+      traefik.http.middlewares.authelia-basic.forwardAuth.address: http://authelia:9091/api/verify?auth=basic
+      traefik.http.middlewares.authelia-basic.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
+      traefik.http.middlewares.authelia-basic.forwardAuth.trustForwardHeader: true
+      traefik.http.middlewares.authelia.forwardAuth.address: http://authelia:9091/api/verify?rd=https://auth.${DOMAIN}
+      traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email
+      traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader: true
+      traefik.http.routers.authelia.rule: Host(`authelia.${DOMAIN}`) || Host(`auth.${DOMAIN}`)
+      traefik.http.services.authelia.loadbalancer.server.port: 9091
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/authelia/config:/config
+  bazarr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: bazarr
+    environment: &a1
+      PGID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "nc -z localhost 6767 || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/bazarr
+    labels:
+      homepage.description: Subtitle Curator
+      homepage.group: Media
+      homepage.href: https://bazarr.${DOMAIN:?no domain defined}
+      homepage.icon: bazarr
+      homepage.name: Bazarr
+      homepage.widget.key: ${BAZARR_API_KEY:-}
+      homepage.widget.type: bazarr
+      homepage.widget.url: http://bazarr:6767
+      traefik.enable: true
+      traefik.http.routers.bazarr.middlewares: authelia@docker
+      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN}`) || Host(`subtitles.${DOMAIN}`)
+      traefik.http.routers.bazarr.service: bazarr
+      traefik.http.services.bazarr.loadbalancer.server.port: 6767
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/bazarr:/config
+      - ${MEDIA_PATH}/movies:/movies
+      - ${MEDIA_PATH}/series:/series
+  beszel:
+    cap_drop:
+      - ALL
+    container_name: beszel
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD", "/beszel", "health" ]
+      timeout: 10s
+    image: henrygd/beszel
+    labels:
+      homepage.description: Lightweight server monitoring platform
+      homepage.group: Log
+      homepage.href: https://beszel.${DOMAIN:?no domain defined}
+      homepage.icon: beszel
+      homepage.name: Beszel
+      homepage.widget.fields: '["systems", "up"]'
+      homepage.widget.password: ${BESZEL_ADMIN_PASSWORD:?beszel admin password not defined}
+      homepage.widget.type: beszel
+      homepage.widget.url: http://beszel:8090
+      homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
+      homepage.widget.version: 2
+      traefik.enable: true
+      traefik.http.routers.beszel.rule: Host(`beszel.${DOMAIN}`) || Host(`sys.${DOMAIN}`)
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/beszel/data:/beszel_data
+  beszel-agent:
+    cap_add:
+      - CAP_PERFMON
+    cap_drop:
+      - ALL
+    container_name: beszel-agent
+    depends_on:
+      beszel:
+        condition: service_started
+    devices:
+      - /dev/dri/card0:/dev/dri/card0
+    environment:
+      KEY: ${BESZEL_AGENT_KEY:?beszel agent key not defined}
+      LISTEN: 45876
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "nc -z localhost 45876 || exit 1" ]
+      timeout: 10s
+    image: henrygd/beszel-agent-intel
+    labels:
+      traefik.enable: false
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  cadvisor:
+    container_name: cadvisor
+    devices:
+      - /dev/kmsg
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1" ]
+      timeout: 10s
+    image: gcr.io/cadvisor/cadvisor
+    labels:
+      traefik.enable: false
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+  crowdsec:
+    cap_add:
+      - DAC_READ_SEARCH
+    cap_drop:
+      - ALL
+    container_name: crowdsec
+    environment:
+      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      ENROLL_INSTANCE_NAME: pangolin-crowdsec
+      ENROLL_TAGS: docker
+      GID: "${GID:-1000}"
+      PARSERS: crowdsecurity/whitelists
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "cscli version || exit 1" ]
+      timeout: 10s
+    image: crowdsecurity/crowdsec
+    labels:
+      traefik.enable: false
+    ports:
+      - 6060:6060
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/crowdsec:/etc/crowdsec
+      - ${DATA_PATH}/crowdsec/db:/var/lib/crowdsec/data
+      - ${DATA_PATH}/traefik/logs:/var/log/traefik:ro
+  docker-socket-proxy:
+    container_name: docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      POST: 0
+      SERVICES: 1
+      TASKS: 1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:2375/_ping || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/tecnativa/docker-socket-proxy
+    labels:
+      traefik.enable: false
+    ports:
+      - 0.0.0.0:2375:2375
+    privileged: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   dockge:
+    cap_drop:
+      - ALL
     container_name: dockge
     environment:
       DOCKGE_ENABLE_CONSOLE: true
       DOCKGE_STACKS_DIR: /opt/stacks
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:5001 || exit 1" ]
+      timeout: 10s
     image: louislam/dockge:1
     labels:
       homepage.description: Docker GUI
@@ -11,10 +342,1901 @@ services:
       homepage.href: https://dockge.${DOMAIN:?no domain defined}
       homepage.icon: dockge
       homepage.name: Dockge
+      traefik.enable: true
       traefik.http.routers.dockge.rule: Host(`dockge.${DOMAIN:?no domain defined}`)
       traefik.http.services.dockge.loadbalancer.server.port: 5001
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATA_PATH:?data path not defined}/dockge:/app/data
       - ${STACKS_PATH:?stacks path not defined}:/opt/stacks
+  dockpeek:
+    cap_drop:
+      - ALL
+    container_name: dockpeek
+    environment:
+      PASSWORD: ${DOCKPEEK_PASSWORD:?dockpeek password not defined}
+      SECRET_KEY: ${DOCKPEEK_SECRET_KEY:?dockpeek secret key not defined}
+      TRAEFIK_LABELS: true
+      USERNAME: ${DOCKPEEK_USERNAME:?dockpeek username not defined}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8000 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/dockpeek/dockpeek
+    labels:
+      traefik.enable: true
+      traefik.http.routers.dockpeek.rule: Host(`dockpeek.${DOMAIN}`)
+      traefik.http.services.dockpeek.loadbalancer.server.port: 8000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  dozzle:
+    cap_drop:
+      - ALL
+    container_name: dozzle
+    environment:
+      DOZZLE_ENABLE_ACTIONS: true
+      DOZZLE_ENABLE_SHELL: true
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "/dozzle", "healthcheck" ]
+      timeout: 10s
+    image: amir20/dozzle
+    labels:
+      traefik.enable: true
+      traefik.http.routers.dozzle.rule: Host(`dozzle.${DOMAIN}`) || Host(`logs.${DOMAIN}`)
+      traefik.http.services.dozzle.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  duplicati:
+    container_name: duplicati
+    environment:
+      DUPLICATI__WEBSERVICE_PASSWORD: ${DUPLICATI_WEB_PASSWORD:?duplicati web password required}
+      PGID: 0
+      PUID: 0
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY:?duplicati encryption key required}
+      TZ: ${TZ:-UTC}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8200 || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/duplicati:latest
+    labels:
+      traefik.enable: true
+      traefik.http.routers.duplicati.middlewares: authelia@docker
+      traefik.http.routers.duplicati.rule: Host(`duplicati.${DOMAIN}`) || Host(`backup.${DOMAIN}`)
+      traefik.http.services.duplicati.loadbalancer.server.port: 8200
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/duplicati:/config
+      - ${DATA_PATH}:/source:ro
+      - ${BACKUP_PATH:?backup path required}:/backups
+  excalidash-backend:
+    # nx:root-allowed - uses su-exec for user switching
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: excalidash-backend
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - NODE_ENV=production
+      - PORT=8000
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" ]
+      timeout: 10s
+    image: zimengxiong/excalidash-backend
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/excalidash/backend:/app/prisma
+
+  excalidash-frontend:
+    # nx:root-allowed - nginx needs to chown cache directories
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: excalidash-frontend
+    depends_on:
+      - excalidash-backend
+    environment:
+      BACKEND_URL: excalidash-backend:8000
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80" ]
+      timeout: 10s
+    image: zimengxiong/excalidash-frontend
+    labels:
+      traefik.enable: true
+      traefik.http.routers.excalidash.rule: Host(`excalidash.${DOMAIN}`) || Host(`dash.${DOMAIN}`)
+      traefik.http.services.excalidash.loadbalancer.server.port: 80
+    restart: unless-stopped
+  excalidraw:
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: excalidraw
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "nc -z localhost 80 || exit 1" ]
+      timeout: 10s
+    image: excalidraw/excalidraw
+    labels:
+      traefik.enable: true
+      traefik.http.routers.excalidraw.rule: Host(`excalidraw.${DOMAIN:?no domain defined}`) || Host(`draw.${DOMAIN}`)
+      traefik.http.services.excalidraw.loadbalancer.server.port: 80
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH:?data path not defined}/excalidraw:/data
+  flaresolverr:
+    # nx:root-allowed - needs root for headless browser
+    cap_add:
+      - SYS_ADMIN
+    cap_drop:
+      - ALL
+    container_name: flaresolverr
+    environment:
+      <<: *a1
+      CAPTCHA_SOLVER: none
+      LOG_HTML: false
+      LOG_LEVEL: info
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8191/health || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/flaresolverr/flaresolverr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN}`)
+      traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  garage:
+    cap_drop:
+      - ALL
+    container_name: garage
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?garage rpc secret required}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "/garage", "status" ]
+      timeout: 10s
+    image: dxflrs/garage:v2.1.0
+    labels:
+      traefik.enable: true
+      traefik.http.routers.garage.rule: Host(`s3.${DOMAIN}`)
+      traefik.http.services.garage.loadbalancer.server.port: 3900
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/garage/config/garage.toml:/etc/garage.toml:ro
+      - ${DATA_PATH}/garage/meta:/var/lib/garage/meta
+      - ${DATA_PATH}/garage/data:/var/lib/garage/data
+  glances:
+    cap_add:
+      - SYS_PTRACE
+    cap_drop:
+      - ALL
+    container_name: glances
+    environment:
+      GLANCES_OPT: -w -1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:61208/api/4/now || exit 1" ]
+      timeout: 10s
+    image: nicolargo/glances
+    labels:
+      homepage.description: System Monitoring Tool
+      homepage.group: Log
+      homepage.href: https://glances.${DOMAIN}
+      homepage.icon: glances
+      homepage.name: Glances
+      homepage.widget.metric: info
+      homepage.widget.type: glances
+      homepage.widget.url: http://glances:61208
+      homepage.widget.version: 4
+      traefik.enable: true
+      traefik.http.routers.glances.rule: Host(`glances.${DOMAIN}`)
+      traefik.http.services.glances.loadbalancer.server.port: 61208
+    pid: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+  gluetun:
+    # nx:root-allowed - VPN requires NET_ADMIN capability
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    container_name: gluetun
+    devices:
+      - /dev/net/tun
+    environment:
+      <<: *a1
+      GLUETUN_API_KEY: ${GLUETUN_API_KEY:?gluetun api key not defined}
+      HTTPPROXY_STEALTH: false
+      HTTP_CONTROL_SERVER_LOG: false
+      PUBLICIP_FILE: /gluetun/ip
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:?address not defined}
+      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:?endpoint ip not defined}
+      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:-51820}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:?private key not defined}
+      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:?public key not defined}
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 180s
+      test: [ "CMD", "sh", "-c", "wget -q -O /dev/null --header=\"X-API-Key: $${GLUETUN_API_KEY}\" http://127.0.0.1:8000/v1/publicip/ip" ]
+      timeout: 10s
+    image: qmcgaw/gluetun
+    labels:
+      homepage.description: VPN client for containers
+      homepage.group: Media
+      homepage.icon: gluetun
+      homepage.name: Gluetun
+      homepage.widget.fields: '["public_ip", "region", "country"]'
+      homepage.widget.key: ${GLUETUN_API_KEY:-}
+      homepage.widget.type: gluetun
+      homepage.widget.url: http://gluetun:8000
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+      - 10095:10095
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /dev/net/tun:/dev/net/tun
+      - ${DATA_PATH}/gluetun:/gluetun
+  gotenberg:
+    cap_drop:
+      - ALL
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+    container_name: gotenberg
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:3000/health || exit 1" ]
+      timeout: 10s
+    image: gotenberg/gotenberg
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  grafana:
+    cap_drop:
+      - ALL
+    container_name: grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_USERS_ALLOW_SIGN_UP: false
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1" ]
+      timeout: 10s
+    image: grafana/grafana
+    labels:
+      homepage.description: Metrics Visualizer
+      homepage.group: Log
+      homepage.href: https://grafana.${DOMAIN}
+      homepage.icon: grafana
+      homepage.name: Grafana
+      homepage.widget.fields: '["dashboards","datasources","totalalerts","alertstriggered"]'
+      homepage.widget.password: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
+      homepage.widget.type: grafana
+      homepage.widget.url: http://grafana:3000
+      homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
+      traefik.enable: true
+      traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN}`) || Host(`dashboards.${DOMAIN}`)
+      traefik.http.services.grafana.loadbalancer.server.port: 3000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ${DATA_PATH}/grafana/dashboards:/var/lib/grafana/dashboards
+      - ${DATA_PATH}/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+  harborguard:
+    cap_drop:
+      - ALL
+    container_name: harborguard
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -sf http://localhost:3000 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/harborguard/harborguard
+    labels:
+      traefik.enable: true
+      traefik.http.routers.harborguard.rule: Host(`harborguard.${DOMAIN}`)
+      traefik.http.services.harborguard.loadbalancer.server.port: 3000
+    privileged: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  homepage:
+    cap_drop:
+      - ALL
+    container_name: homepage
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN},dash.${DOMAIN}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1:3000 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/gethomepage/homepage
+    labels:
+      traefik.enable: true
+      traefik.http.routers.homepage.rule: Host(`homepage.${DOMAIN}`) || Host(`dash.${DOMAIN}`)
+      traefik.http.services.homepage.loadbalancer.server.port: 3000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  imdbarr:
+    cap_drop:
+      - ALL
+    container_name: imdbarr
+    environment:
+      BASE_URL: ${BASE_URL:-https://imdbarr.${DOMAIN}}
+      PORT: 3000
+      TMDB_API_KEY: ${TMDB_API_KEY:?tmdb api key not defined}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/skulltrail/imdbarr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.imdbarr.rule: Host(`imdbarr.${DOMAIN}`)
+      traefik.http.services.imdbarr.loadbalancer.server.port: 3000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  immich:
+    cap_drop:
+      - ALL
+    container_name: immich
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
+      DB_HOSTNAME: postgres
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
+      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
+      IMMICH_VERSION: ${IMMICH_VERSION:-release}
+      NODE_ENV: production
+      REDIS_DBINDEX: 0
+      REDIS_HOSTNAME: redis
+      REDIS_PORT: 6379
+      UPLOAD_LOCATION: /usr/src/app/upload
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -sf http://localhost:2283/api/server/ping || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    labels:
+      homepage.description: Photo management and backup
+      homepage.group: Data
+      homepage.href: https://photos.${DOMAIN}
+      homepage.icon: immich
+      homepage.name: Immich
+      homepage.widget.key: ${IMMICH_API_KEY:-}
+      homepage.widget.type: immich
+      homepage.widget.url: http://immich:2283
+      homepage.widget.version: 2
+      traefik.enable: true
+      traefik.http.routers.immich.rule: Host(`immich.${DOMAIN}`) || Host(`photos.${DOMAIN}`)
+      traefik.http.services.immich.loadbalancer.server.port: 2283
+    ports:
+      - 2283:2283
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/immich/upload:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+  immich-machine-learning:
+    cap_drop:
+      - ALL
+    container_name: immich-machine-learning
+    environment:
+      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
+      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:-?immich db hostname required}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
+      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
+      IMMICH_VERSION: ${IMMICH_VERSION:-release}
+      NODE_ENV: production
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 120s
+      test: [ "CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:3003/ping\")' || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/immich/cache:/cache
+  intel-gpu-exporter:
+    command:
+      - -interval=5s
+      - -addr
+      - ":9091"
+    container_name: intel-gpu-exporter
+    devices:
+      - /dev/dri:/dev/dri
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9091/metrics || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/clambin/intel-gpu-exporter
+    labels:
+      traefik.enable: false
+    pid: host
+    privileged: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  jellyfin:
+    # nx:root-allowed - needs root for hardware transcoding
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: jellyfin
+    devices:
+      - /dev/dri
+    environment:
+      <<: *a1
+      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8096/health || exit 1" ]
+      timeout: 10s
+    image: jellyfin/jellyfin
+    labels:
+      homepage.description: Media Server
+      homepage.group: Media
+      homepage.href: https://jellyfin.${DOMAIN}
+      homepage.icon: jellyfin
+      homepage.name: Jellyfin
+      homepage.widget.enableNowPlaying: true
+      homepage.widget.key: ${JELLYFIN_API_KEY:-}
+      homepage.widget.streamOneStreamToTwoRows: true
+      homepage.widget.type: jellyfin
+      homepage.widget.url: http://host.docker.internal:8096
+      traefik.enable: true
+      traefik.http.routers.jellyfin.rule: Host(`jellyfin.${DOMAIN}`) || Host(`tv.${DOMAIN}`)
+      traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/jellyfin:/config
+      - ${MEDIA_PATH:?media path not defined}:/media:ro
+  kromgo:
+    cap_drop:
+      - ALL
+    container_name: kromgo
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      PROMETHEUS_URL: "http://prometheus:9090"
+    healthcheck:
+      disable: true
+    image: ghcr.io/kashalls/kromgo
+    labels:
+      traefik.enable: true
+      traefik.http.routers.kromgo.rule: Host(`kromgo.${DOMAIN}`) || Host(`stat.${DOMAIN}`)
+      traefik.http.services.kromgo.loadbalancer.server.port: 8080
+    ports:
+      - 8082:8080
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml:ro
+  lidarr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: lidarr
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8686/ping || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/lidarr
+    labels:
+      homepage.description: Personal Music Curator
+      homepage.group: Media
+      homepage.href: https://lidarr.${DOMAIN}
+      homepage.icon: lidarr
+      homepage.name: Lidarr
+      homepage.widget.key: ${LIDARR_API_KEY:-}
+      homepage.widget.type: lidarr
+      homepage.widget.url: http://lidarr:8686
+      traefik.enable: true
+      traefik.http.routers.lidarr.middlewares: authelia@docker
+      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN}`) || Host(`audio.${DOMAIN}`)
+      traefik.http.services.lidarr.loadbalancer.server.port: 8686
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/lidarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/music:/music
+  loggifly:
+    cap_drop:
+      - ALL
+    container_name: loggifly
+    environment:
+      DOCKER_HOST: tcp://host.docker.internal:2375
+    healthcheck:
+      disable: true
+    image: ghcr.io/clemcer/loggifly
+    labels:
+      traefik.enable: false
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: 1000:1000
+    volumes:
+      - ${DATA_PATH}/loggifly:/config
+  loki:
+    cap_drop:
+      - ALL
+    container_name: loki
+    healthcheck:
+      disable: true
+    image: grafana/loki
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/loki:/loki
+  mariadb:
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    container_name: mariadb
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: yes
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?mariadb database not defined}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?mariadb password not defined}
+      MYSQL_USER: ${MYSQL_USER:?mariadb user not defined}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "healthcheck.sh --connect --innodb_initialized" ]
+      timeout: 10s
+    image: mariadb:11.8
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/mariadb:/var/lib/mysql
+  meilisearch:
+    cap_drop:
+      - ALL
+    container_name: meilisearch
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?meilisearch master key required}
+      MEILI_NO_ANALYTICS: true
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1" ]
+      timeout: 10s
+    image: getmeili/meilisearch:v1.12
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/meilisearch:/meili_data
+  mytabs:
+    # nx:root-allowed - needs to change file ownership on startup
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: mytabs
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/47777' || exit 1" ]
+      timeout: 10s
+    image: louislam/its-mytabs:1
+    labels:
+      traefik.enable: true
+      traefik.http.routers.mytabs.rule: Host(`mytabs.${DOMAIN}`) || Host(`tabs.${DOMAIN}`)
+      traefik.http.services.mytabs.loadbalancer.server.port: 47777
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/mytabs:/app/data
+  n8n:
+    cap_drop:
+      - ALL
+    container_name: n8n
+    environment:
+      GENERIC_TIMEZONE: ${TZ}
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      NODE_ENV: production
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1" ]
+      timeout: 10s
+    image: n8nio/n8n
+    labels:
+      traefik.enable: true
+      traefik.http.routers.n8n.rule: Host(`n8n.${DOMAIN}`)
+      traefik.http.services.n8n.loadbalancer.server.port: 5678
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/n8n:/home/node/.n8n
+  navidrome:
+    # nx:root-allowed - handles user switching internally
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: navidrome
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4533/ping || exit 1" ]
+      timeout: 10s
+    image: deluan/navidrome
+    labels:
+      homepage.description: Personal Music Streamer
+      homepage.group: Media
+      homepage.href: https://navidrome.${DOMAIN}
+      homepage.icon: navidrome
+      homepage.name: Navidrome
+      homepage.widget.salt: ${NAVIDROME_API_SALT:-}
+      homepage.widget.token: ${NAVIDROME_API_TOKEN:-}
+      homepage.widget.type: navidrome
+      homepage.widget.url: http://navidrome:4533
+      homepage.widget.user: ${NAVIDROME_API_USER:-}
+      traefik.enable: true
+      traefik.http.routers.navidrome.rule: Host(`navidrome.${DOMAIN}`)
+      traefik.http.services.navidrome.loadbalancer.server.port: 4533
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/navidrome:/data
+      - ${MEDIA_PATH}/music:/music:ro
+  newt:
+    cap_drop:
+      - ALL
+    container_name: newt
+    environment:
+      NEWT_ID: ${NEWT_ID:?newt id not define}
+      NEWT_SECRET: ${NEWT_SECRET:?newt secret not defined}
+      PANGOLIN_ENDPOINT: https://pangolin.${DOMAIN}
+    healthcheck:
+      disable: true
+    image: fosrl/newt
+    labels:
+      homepage.description: Pangolin tunneled site & network connector
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  nextcloud:
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: nextcloud
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
+      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${DOMAIN} cloud.${DOMAIN}"
+      POSTGRES_DATABASE: ${NEXTCLOUD_DB_NAME:-nextcloud database name not defined}
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?nextcloud database password not defined}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:?nextcloud database user not defined}
+      REDIS_HOST: redis
+    healthcheck:
+      interval: 60s
+      retries: 3
+      start_period: 120s
+      test: [ "CMD-SHELL", "curl -f http://localhost/status.php | grep -q '\"installed\":true' || exit 1" ]
+      timeout: 10s
+    image: nextcloud
+    labels:
+      homepage.description: Cloud storage and collaboration
+      homepage.group: Data
+      homepage.href: https://nextcloud.${DOMAIN}
+      homepage.icon: nextcloud
+      homepage.name: Nextcloud
+      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
+      homepage.widget.type: nextcloud
+      homepage.widget.url: https://nextcloud.${DOMAIN}
+      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
+      traefik.enable: true
+      traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
+      traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
+      traefik.http.routers.nextcloud.middlewares: nextcloud-dav
+      traefik.http.routers.nextcloud.rule: Host(`nextcloud.${DOMAIN}`) || Host(`cloud.${DOMAIN}`)
+      traefik.http.services.nextcloud.loadbalancer.server.port: 80
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/nextcloud:/var/www/html
+      - ${NEXTCLOUD_DATA_PATH:?nextcloud data path not defined}:/var/www/html/data
+  node-exporter:
+    cap_drop:
+      - ALL
+    command:
+      - --collector.cpu.info
+      - --path.procfs=/host/proc
+      - --path.rootfs=/host
+      - --path.sysfs=/host/sys
+    container_name: node-exporter
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9100/metrics || exit 1" ]
+      timeout: 10s
+    image: quay.io/prometheus/node-exporter
+    labels:
+      traefik.enable: false
+    network_mode: host
+    pid: host
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /:/host:ro,rslave
+  ntfy:
+    cap_drop:
+      - ALL
+    command:
+      - serve
+    container_name: ntfy
+    healthcheck:
+      interval: 60s
+      retries: 3
+      start_period: 40s
+      test: [ "CMD-SHELL", "wget -q --tries=1 http://localhost:80/v1/health -O - | grep -Eo '\"healthy\"\\s*:\\s*true' || exit 1" ]
+      timeout: 10s
+    image: binwiederhier/ntfy
+    labels:
+      traefik.enable: true
+      traefik.http.routers.ntfy.rule: Host(`ntfy.${DOMAIN}`) || Host(`notify.${DOMAIN_EXT:?no external domain defined}`)
+      traefik.http.services.ntfy.loadbalancer.server.port: 80
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: nobody:nogroup
+    volumes:
+      - target: /var/cache/ntfy
+        tmpfs:
+          size: 100m
+        type: tmpfs
+      - ${DATA_PATH}/ntfy/config:/etc/ntfy
+      - ${DATA_PATH}/ntfy/db:/var/lib/ntfy
+  omni-tools:
+    # nx:root-allowed - nginx needs to chown cache directories
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: omni-tools
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      timeout: 10s
+    image: iib0011/omni-tools
+    labels:
+      traefik.enable: true
+      traefik.http.routers.omni-tools.rule: Host(`omni-tools.${DOMAIN}`) || Host(`tools.${DOMAIN}`)
+      traefik.http.services.omni-tools.loadbalancer.server.port: 80
+    restart: unless-stopped
+  overseerr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: overseerr
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:5055/api/v1/status || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/overseerr
+    labels:
+      homepage.description: Media Server Request Management
+      homepage.group: Media
+      homepage.href: https://overseerr.${DOMAIN}
+      homepage.icon: overseerr
+      homepage.name: overseerr
+      homepage.widget.key: ${OVERSEERR_API_KEY:-}
+      homepage.widget.type: overseerr
+      homepage.widget.url: http://overseerr:5055
+      traefik.enable: true
+      traefik.http.routers.overseerr.rule: Host(`overseerr.${DOMAIN}`) || Host(`requests.${DOMAIN_EXT:?no external domain defined}`)
+      traefik.http.services.overseerr.loadbalancer.server.port: 5055
+    ports:
+      - 5055:5055
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/overseerr:/config
+  paperless:
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: paperless
+    depends_on:
+      gotenberg:
+        condition: service_healthy
+      tika:
+        condition: service_healthy
+    environment:
+      PAPERLESS_ADMIN_MAIL: "${PAPERLESS_ADMIN_MAIL:?paperless admin mail not defined}"
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:?paperless admin user not defined}
+      PAPERLESS_DBENGINE: postgres
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:?paperless db password not defined}
+      PAPERLESS_DBPORT: 5432
+      PAPERLESS_DBUSER: ${PAPERLESS_DB_USERNAME:?paperless db username not defined}
+      PAPERLESS_REDIS: redis://valkey:6379
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_URL: https://paperless.${DOMAIN}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/paperless-ngx/paperless-ngx
+    labels:
+      homepage.description: Paperless Document Management
+      homepage.group: Data
+      homepage.href: https://paperless.${DOMAIN}
+      homepage.icon: paperless
+      homepage.name: Paperless
+      homepage.widget.fields: '["total", "inbox"]'
+      homepage.widget.password: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
+      homepage.widget.type: paperlessngx
+      homepage.widget.url: http://paperless:8000
+      homepage.widget.username: ${PAPERLESS_ADMIN_USER:?paperless admin username not defined}
+      traefik.enable: true
+      traefik.http.routers.paperless.rule: Host(`paperless.${DOMAIN}`)
+      traefik.http.services.paperless.loadbalancer.server.port: 8000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/paperless/data:/usr/src/paperless/data
+      - ${DATA_PATH}/paperless/media:/usr/src/paperless/media
+      - ${DATA_PATH}/paperless/export:/usr/src/paperless/export
+      - ${DATA_PATH}/paperless/consume:/usr/src/paperless/consume
+  pgadmin:
+    # nx:root-allowed - requires default capabilities to run python
+    container_name: pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "True"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?pgadmin email not defined}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?pgadmin password not defined}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/misc/ping || exit 1" ]
+      timeout: 10s
+    image: dpage/pgadmin4
+    labels:
+      homepage.description: PostgreSQL Management Tool
+      homepage.group: Data
+      homepage.href: https://pgadmin.${DOMAIN}
+      homepage.icon: postgres
+      homepage.name: Postgres
+      traefik.enable: true
+      traefik.http.routers.pgadmin.rule: Host(`pgadmin.${DOMAIN}`)
+      traefik.http.services.pgadmin.loadbalancer.server.port: 80
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/pgadmin/pgpass:/tmp/pgpass:ro
+      - ${DATA_PATH}/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ${DATA_PATH}/pgadmin/data:/var/lib/pgadmin
+  plex:
+    # nx:root-allowed - needs root for hardware transcoding
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: plex
+    devices:
+      - /dev/dri
+    environment:
+      <<: *a1
+      ADVERTISE_IP: 192.168.1.3:32400
+      UMASK_SET: 18
+      VERSION: plexpass
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:32400/identity || exit 1" ]
+      timeout: 10s
+    image: plexinc/pms-docker
+    labels:
+      homepage.description: Media Server
+      homepage.group: Media
+      homepage.href: https://plex.${DOMAIN}
+      homepage.icon: plex
+      homepage.name: Plex
+      homepage.widget.fields: '["streams", "movies", "tv", "albums"]'
+      homepage.widget.key: ${PLEX_API_KEY:-}
+      homepage.widget.type: plex
+      homepage.widget.url: http://host.docker.internal:32400
+      traefik.enable: true
+      traefik.http.routers.plex.rule: Host(`plex.${DOMAIN}`) || Host(`watch.${DOMAIN_EXT}`)
+      traefik.http.services.plex.loadbalancer.server.url: http://host.docker.internal:32400
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/plex:/config
+      - ${MEDIA_PATH}:/media
+      - /dev/shm/transcode:/transcode
+  plex-exporter:
+    cap_drop:
+      - ALL
+    container_name: plex-exporter
+    environment:
+      PLEX_SERVER: "http://192.168.1.3:32400"
+      PLEX_TOKEN: "${PLEX_TOKEN:?no plex token defined}"
+    healthcheck:
+      disable: true
+    image: ghcr.io/timothystewart6/prometheus-plex-exporter
+    labels:
+      traefik.enable: false
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  portainer:
+    cap_drop:
+      - ALL
+    command: -H unix:///var/run/docker.sock --admin-password "${PORTAINER_ADMIN_PASSWORD_HASH:?password hash not defined}"
+    container_name: portainer
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "/portainer", "--help" ]
+      timeout: 10s
+    image: portainer/portainer-ce
+    labels:
+      homepage.description: Container Management
+      homepage.group: Core
+      homepage.href: https://portainer.${DOMAIN}
+      homepage.icon: portainer
+      homepage.name: Portainer
+      homepage.widget.env: 1
+      homepage.widget.fields: '["running", "stopped", "total"]'
+      homepage.widget.key: ${PORTAINER_API_KEY:-}
+      homepage.widget.type: portainer
+      homepage.widget.url: http://portainer:9000
+      traefik.enable: true
+      traefik.http.routers.portainer.rule: Host(`portainer.${DOMAIN}`)
+      traefik.http.services.portainer.loadbalancer.server.port: 9000
+    ports:
+      - 9000:9000/tcp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/portainer:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  postgres:
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: postgres
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      POSTGRES_PASSWORD: "${POSTGRES_ROOT_PASSWORD:?postgres password not defined}"
+      POSTGRES_USER: postgres
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 30s
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      timeout: 10s
+    image: pgvector/pgvector:pg16
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/postgres/data:/var/lib/postgresql/data
+  profilarr:
+    # nx:root-allowed - handles user switching internally
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: profilarr
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6868' || exit 1" ]
+      timeout: 10s
+    image: santiagosayshey/profilarr
+    labels:
+      homepage.description: Profile Management for *arrs
+      homepage.group: Media
+      homepage.href: https://profilarr.${DOMAIN}
+      homepage.icon: profilarr
+      homepage.name: Profilarr
+      traefik.enable: true
+      traefik.http.routers.profilarr.middlewares: authelia@docker
+      traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN}`)
+      traefik.http.services.profilarr.loadbalancer.server.port: 6868
+    ports:
+      - 6868:6868
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/profilarr:/config
+  prometheus:
+    cap_drop:
+      - ALL
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3650d
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-admin-api
+      - --web.enable-lifecycle
+    container_name: prometheus
+    environment:
+      PROMETHEUS_RETENTION_TIME: 3650d
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1" ]
+      timeout: 10s
+    image: prom/prometheus
+    labels:
+      homepage.description: Metrics collection
+      homepage.group: Log
+      homepage.href: https://prometheus.${DOMAIN}
+      homepage.icon: prometheus
+      homepage.name: Prometheus
+      homepage.widget.type: prometheus
+      homepage.widget.url: http://prometheus:9090
+      traefik.enable: true
+      traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN}`)
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ${DATA_PATH}/prometheus/data:/prometheus
+  promtail:
+    cap_add:
+      - DAC_READ_SEARCH
+    cap_drop:
+      - ALL
+    command: -config.file=/etc/promtail/config.yml
+    container_name: promtail
+    environment:
+      PROMTAIL_CONFIG_FILE: /etc/promtail/config.yml
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/9080' || exit 1" ]
+      timeout: 10s
+    image: grafana/promtail
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/promtail/data:/var/lib/promtail/positions
+      - ${DATA_PATH}/promtail/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+  prowlarr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: prowlarr
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/prowlarr
+    labels:
+      homepage.description: Indexer Manager for *arrs
+      homepage.group: Media
+      homepage.href: https://prowlarr.${DOMAIN}
+      homepage.icon: prowlarr
+      homepage.name: Prowlarr
+      homepage.widget.key: ${PROWLARR_API_KEY:-}
+      homepage.widget.type: prowlarr
+      homepage.widget.url: http://prowlarr:9696
+      traefik.enable: true
+      traefik.http.routers.prowlarr.middlewares: authelia@docker
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN}`)
+      traefik.http.services.prowlarr.loadbalancer.server.port: 9696
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/prowlarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+  qbittorrent:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - NET_RAW
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: qbittorrent
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    environment:
+      <<: *a1
+      WEBUI_PORT: 10095
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:10095 || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/qbittorrent
+    labels:
+      homepage.description: BitTorrent client for ISOs
+      homepage.group: Media
+      homepage.href: https://qbittorrent.${DOMAIN}
+      homepage.icon: qbittorrent
+      homepage.name: qBittorrent
+      homepage.widget.fields: '["download", "upload", "seed", "leech"]'
+      homepage.widget.password: ${QBITTORRENT_WEBUI_PASSWORD:?qbit password not defined}
+      homepage.widget.type: qbittorrent
+      homepage.widget.url: http://gluetun:10095
+      homepage.widget.username: ${QBITTORRENT_WEBUI_USERNAME:?qbit username not defined}
+      traefik.enable: true
+      traefik.http.routers.qbittorrent.rule: Host(`qbittorrent.${DOMAIN}`) || Host(`torrents.${DOMAIN}`)
+      traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
+    network_mode: service:gluetun
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/qbittorrent:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+  radarr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: radarr
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/radarr
+    labels:
+      homepage.description: Personal Movie Curator
+      homepage.group: Media
+      homepage.href: https://radarr.${DOMAIN}
+      homepage.icon: radarr
+      homepage.name: Radarr
+      homepage.widget.key: ${RADARR_API_KEY:-}
+      homepage.widget.type: radarr
+      homepage.widget.url: http://radarr:7878
+      traefik.enable: true
+      traefik.http.routers.radarr.middlewares: authelia@docker
+      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN}`) || Host(`movies.${DOMAIN}`)
+      traefik.http.services.radarr.loadbalancer.server.port: 7878
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/radarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/movies:/movies
+  redis:
+    cap_add:
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: redis
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      test: [ "CMD-SHELL", "redis-cli ping | grep PONG" ]
+      timeout: 10s
+    image: redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/redis:/data
+  sabnzbd:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: sabnzbd
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/api?mode=version || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/sabnzbd
+    labels:
+      homepage.description: Binary Newsreader
+      homepage.group: Media
+      homepage.href: https://sabnzbd.${DOMAIN}
+      homepage.icon: sabnzbd
+      homepage.name: sabnzbd
+      homepage.widget.key: ${SABNZBD_API_KEY:-}
+      homepage.widget.type: sabnzbd
+      homepage.widget.url: http://sabnzbd:8080
+      traefik.enable: true
+      traefik.http.routers.sabnzbd.middlewares: authelia@docker
+      traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN}`) || Host(`nzb.${DOMAIN}`)
+      traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/sabnzbd:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+  searxng:
+    cap_drop:
+      - ALL
+    container_name: searxng
+    environment:
+      SEARXNG_BASE_URL: https://search.${DOMAIN}/
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1" ]
+      timeout: 10s
+    image: searxng/searxng
+    labels:
+      traefik.enable: true
+      traefik.http.routers.searxng.rule: Host(`search.${DOMAIN}`)
+      traefik.http.services.searxng.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/searxng:/etc/searxng
+  smartctl-exporter:
+    container_name: smartctl-exporter
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9633/metrics || exit 1" ]
+      timeout: 10s
+    image: quay.io/prometheuscommunity/smartctl-exporter
+    labels:
+      traefik.enable: false
+    privileged: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: root
+  sonarr:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: sonarr
+    environment:
+      <<: *a1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/sonarr
+    labels:
+      homepage.description: Personal Series Curator
+      homepage.group: Media
+      homepage.href: https://sonarr.${DOMAIN}
+      homepage.icon: sonarr
+      homepage.name: Sonarr
+      homepage.widget.key: ${SONARR_API_KEY:-}
+      homepage.widget.type: sonarr
+      homepage.widget.url: http://sonarr:8989
+      traefik.enable: true
+      traefik.http.routers.sonarr.middlewares: authelia@docker
+      traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN}`) || Host(`series.${DOMAIN}`)
+      traefik.http.services.sonarr.loadbalancer.server.port: 8989
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/sonarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/series:/series
+  stringer:
+    cap_drop:
+      - ALL
+    container_name: stringer
+    environment:
+      CLEANUP_CRON: 0 0 * * *
+      DATABASE_URL: postgres://stringer:${STRINGER_DB_PASSWORD:?stringer db password required}@postgres:5432/stringer
+      ENCRYPTION_DETERMINISTIC_KEY: ${STRINGER_ENCRYPTION_DETERMINISTIC_KEY:?stringer encryption deterministic key required}
+      ENCRYPTION_KEY_DERIVATION_SALT: ${STRINGER_ENCRYPTION_KEY_DERIVATION_SALT:?stringer encryption key derivation salt required}
+      ENCRYPTION_PRIMARY_KEY: ${STRINGER_ENCRYPTION_PRIMARY_KEY:?stringer encryption primary key required}
+      FETCH_FEEDS_CRON: "*/5 * * * *"
+      PORT: 8080
+      SECRET_KEY_BASE: ${STRINGER_SECRET_KEY_BASE:?stringer secret key base required}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080 | grep -q '^[23]' || exit 1" ]
+      timeout: 10s
+    image: stringerrss/stringer:latest
+    labels:
+      traefik.enable: true
+      traefik.http.routers.stringer.rule: Host(`stringer.${DOMAIN}`) || Host(`rss.${DOMAIN}`)
+      traefik.http.services.stringer.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  syncthing:
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: syncthing
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8384/rest/noauth/health || exit 1" ]
+      timeout: 10s
+    image: syncthing/syncthing
+    labels:
+      homepage.description: File synchronization
+      homepage.group: Data
+      homepage.href: https://syncthing.${DOMAIN}
+      homepage.icon: syncthing
+      homepage.name: Syncthing
+      traefik.enable: true
+      traefik.http.routers.syncthing.rule: Host(`syncthing.${DOMAIN}`)
+      traefik.http.services.syncthing.loadbalancer.server.port: 8384
+    ports:
+      - 8384:8384
+      - 22000:22000/tcp
+      - 22000:22000/udp
+      - 21027:21027/udp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/syncthing:/var/syncthing
+  tailscale:
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    cap_drop:
+      - ALL
+    container_name: tailscale
+    environment:
+      TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
+      TS_EXTRA_ARGS: "--accept-routes=true --advertise-routes=192.168.10.0/24 --advertise-exit-node=true"
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_STATE_DIR: /var/lib/tailscale
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "tailscale status --json | grep -q 'BackendState.*Running' || exit 1" ]
+      timeout: 10s
+    hostname: nexus
+    image: tailscale/tailscale
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
+      - ${DATA_PATH}/tailscale:/var/run/tailscale
+      - /dev/net/tun:/dev/net/tun
+  tautulli:
+    # nx:root-allowed - linuxserver.io uses PUID/PGID
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: tautulli
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8181/status || exit 1" ]
+      timeout: 10s
+    image: lscr.io/linuxserver/tautulli
+    labels:
+      homepage.description: Media Server Companion
+      homepage.group: Media
+      homepage.href: https://tautulli.${DOMAIN}
+      homepage.icon: tautulli
+      homepage.name: Tautulli
+      homepage.widget.key: ${TAUTULLI_API_KEY:-}
+      homepage.widget.type: tautulli
+      homepage.widget.url: http://tautulli:8181
+      traefik.enable: true
+      traefik.http.routers.tautulli.rule: Host(`tautulli.${DOMAIN}`) || Host(`streams.${DOMAIN_EXT}`)
+    ports:
+      - 8181:8181
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/tautulli:/config
+  tika:
+    cap_drop:
+      - ALL
+    container_name: tika
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9998" ]
+      timeout: 10s
+    image: apache/tika
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  traefik:
+    cap_add:
+      - NET_BIND_SERVICE
+    cap_drop:
+      - ALL
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --ping=true
+      - --log.level=INFO
+      - --log.format=json
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+      - --accesslog.format=json
+      - --accesslog.bufferingsize=100
+      - --experimental.plugins.crowdsec.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      - --experimental.plugins.crowdsec.version=v1.3.3
+      - --certificatesresolvers.letsencrypt.acme.email=${CLOUDFLARE_EMAIL:?cloudflare email not defined}
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/letsencrypt/acme.json
+      - --entrypoints.web.address=:8000
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.websecure.address=:8443
+      - --entrypoints.websecure.http.tls.certResolver=letsencrypt
+      - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN}
+      - --entrypoints.websecure.http.tls.domains[0].sans=*.nexus.${DOMAIN},*.${DOMAIN}
+      - --entrypoints.websecure.http.tls=true
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.file.filename=/etc/traefik/dynamic.yaml
+      - --providers.file.watch=true
+      - --serverstransport.insecureskipverify=true
+    container_name: traefik
+    depends_on:
+      crowdsec:
+        condition: service_healthy
+    environment:
+      CLOUDFLARE_DNS_API_TOKEN: ${CLOUDFLARE_DNS_API_TOKEN:?cloudflare API token not defined}
+      CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:?cloudflare email not defined}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "traefik healthcheck --ping" ]
+      timeout: 10s
+    hostname: traefik
+    image: traefik
+    labels:
+      homepage.description: Reverse proxy for exposing apps via HTTPS
+      homepage.group: Core
+      homepage.href: https://traefik-2.${DOMAIN}
+      homepage.icon: traefik
+      homepage.name: Traefik 2
+      homepage.widget.type: traefik
+      homepage.widget.url: http://host.docker.internal:8080
+      traefik.enable: true
+      traefik.http.routers.dashboard.rule: Host(`traefik-2.${DOMAIN}`) || Host(`traefik.nexus.${DOMAIN}`)
+      traefik.http.routers.dashboard.service: api@internal
+    ports:
+      - 8000:8000
+      - 8443:8443
+      - 8080:8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/letsencrypt:/etc/letsencrypt
+      - ${DATA_PATH}/traefik/logs:/var/log/traefik
+      - /mnt/data/nexus/docker/traefik/dynamic.yaml:/etc/traefik/dynamic.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  trala:
+    cap_drop:
+      - ALL
+    container_name: trala
+    environment:
+      LOG_LEVEL: info
+      REFRESH_INTERVAL_SECONDS: 30
+      SEARCH_ENGINE_URL: "https://duckduckgo.com/?q:"
+      TRAEFIK_API_HOST: http://traefik:8080
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/dannybouwers/trala
+    labels:
+      traefik.enable: true
+      traefik.http.routers.trala.rule: Host(`trala.${DOMAIN}`)
+      traefik.http.services.trala.loadbalancer.server.port: 8080
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/trala:/config:ro
+  unpackerr:
+    # nx:root-allowed - minimal container for file extraction
+    cap_drop:
+      - ALL
+    container_name: unpackerr
+    environment:
+      <<: *a1
+      UN_DEBUG: false
+      UN_DIR_MODE: 755
+      UN_FILE_MODE: 644
+      UN_FOLDER_0_DELETE_AFTER: 10m
+      UN_FOLDER_0_DELETE_FILES: false
+      UN_FOLDER_0_DELETE_ORIGINAL: false
+      UN_FOLDER_0_EXTRACT_PATH: /downloads
+      UN_FOLDER_0_MOVE_BACK: false
+      UN_FOLDER_0_PATH: /downloads
+      UN_INTERVAL: 2m
+      UN_MAX_RETRIES: 3
+      UN_PARALLEL: 1
+      UN_RETRY_DELAY: 5m
+      UN_START_DELAY: 1m
+    image: golift/unpackerr
+    labels:
+      traefik.enable: false
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${MEDIA_PATH}/downloads:/downloads
+  valkey:
+    cap_add:
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    command: --save 60 1 --loglevel warning
+    container_name: valkey
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      test: [ "CMD-SHELL", "valkey-cli ping | grep PONG" ]
+      timeout: 3s
+    image: valkey/valkey
+    ports:
+      - 6379:6379
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/valkey:/data
+  watchtower:
+    cap_drop:
+      - ALL
+    container_name: watchtower
+    environment:
+      WATCHTOWER_CLEANUP: true
+      WATCHTOWER_DEBUG: true
+      WATCHTOWER_HTTP_API_METRICS: true
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
+      WATCHTOWER_SCHEDULE: 0 0 4 * * *
+    healthcheck:
+      interval: 60s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "/watchtower", "--health-check" ]
+      timeout: 10s
+    image: containrrr/watchtower
+    labels:
+      homepage.description: Container Update Automation
+      homepage.group: Core
+      homepage.icon: watchtower
+      homepage.name: Watchtower
+      homepage.widget.fields: '["containers_scanned", "containers_updated", "containers_failed"]'
+      homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
+      homepage.widget.type: watchtower
+      homepage.widget.url: http://watchtower:8080
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  wizarr:
+    # nx:root-allowed - handles user switching internally
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    container_name: wizarr
+    environment:
+      <<: *a1
+      DISABLE_BUILTIN_AUTH: false
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:5690 || exit 1" ]
+      timeout: 10s
+    image: ghcr.io/wizarrrr/wizarr
+    labels:
+      traefik.enable: true
+      traefik.http.routers.wizarr.rule: Host(`wizarr.${DOMAIN}`) || Host(`join.${DOMAIN_EXT}`)
+    ports:
+      - 5690:5690
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${DATA_PATH}/wizarr/database:/data/database
+      - ${DATA_PATH}/wizarr/wizard:/data/wizard_steps

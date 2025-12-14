@@ -1,10 +1,11 @@
 .direnv/
 .DS_Store
 .env
+.local/
 * copy.yaml
 *.env
+archive/*
 backups/
-data/dockge.db
-data/dockge.db-shm
-data/dockge.db-wal
-docker/
+docker/syncthing/Sync/
+docker/traefik/dynamic.yaml
+stacks/
