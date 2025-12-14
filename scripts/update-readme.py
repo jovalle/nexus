@@ -91,9 +91,15 @@ class ComposeParser:
         return None
 
     @staticmethod
-    def parse_compose_file(compose_path: Path) -> List[Tuple[str, str, Optional[str]]]:
+    def parse_compose_file(
+        compose_path: Path, warn_missing_desc: bool = True
+    ) -> List[Tuple[str, str, Optional[str]]]:
         """
         Parse a compose file and return list of (service_name, description, url).
+
+        Args:
+            compose_path: Path to compose.yaml file
+            warn_missing_desc: If True, warn about services without descriptions
         """
         if not compose_path.exists():
             return []
@@ -111,6 +117,8 @@ class ComposeParser:
                 return []
 
             services = []
+            missing_descriptions = []
+
             for service_name, service_data in data["services"].items():
                 if not isinstance(service_data, dict):
                     continue
@@ -123,9 +131,20 @@ class ComposeParser:
                 description = ComposeParser.extract_description(
                     service_data, service_name, compose_content
                 )
+
+                if not description and warn_missing_desc:
+                    missing_descriptions.append(service_name)
+
                 url = ComposeParser.extract_url(service_data)
 
                 services.append((service_name, description, url))
+
+            # Warn about missing descriptions
+            if missing_descriptions:
+                print(f"\n⚠️  Services without descriptions in {compose_path.name}:")
+                for svc in missing_descriptions:
+                    print(f"   - {svc}")
+                print(f"   Tip: Add 'homepage.description' label or comment above service\n")
 
             # Sort services alphabetically by name
             services.sort(key=lambda x: x[0].lower())
@@ -151,13 +170,13 @@ class ReadmeUpdater:
         """
         headers = []
 
-        # Find the Stack/Service Lineup section
-        pattern = r"## 🏗️ Stack/Service Lineup.*?(?=\n## |\Z)"
+        # Find the Service Lineup section
+        pattern = r"## 🏗️ Service Lineup.*?(?=\n## |\Z)"
         section_match = re.search(pattern, content, re.DOTALL)
 
         if not section_match:
             raise ValueError(
-                "Error: '## 🏗️ Stack/Service Lineup' section not found in README.md\n"
+                "Error: '## 🏗️ Service Lineup' section not found in README.md\n"
                 "Please add this section to define your stack structure."
             )
 
@@ -174,7 +193,7 @@ class ReadmeUpdater:
             stack_key = re.sub(r"\s+", "-", stack_key)
 
             # Map common variations
-            if "root" in stack_key:
+            if "root" in stack_key or "nexus" in stack_key:
                 stack_key = "root"
             elif stack_key in ["app", "apps", "application", "applications"]:
                 stack_key = "app"
@@ -191,7 +210,7 @@ class ReadmeUpdater:
 
         if not headers:
             raise ValueError(
-                "Error: No stack headers (###) found in the '## 🏗️ Stack/Service Lineup' section\n"
+                "Error: No stack headers (###) found in the '## 🏗️ Service Lineup' section\n"
                 "Please add stack headers like '### � Root' to define your stacks."
             )
 
@@ -238,7 +257,9 @@ class ReadmeUpdater:
             if missing_in_filesystem:
                 print(f"\nStacks in README but missing compose files or services:")
                 for stack in sorted(missing_in_filesystem):
-                    expected_path = STACKS_DIR / stack / "compose.yaml" if stack != "root" else ROOT_COMPOSE
+                    expected_path = (
+                        STACKS_DIR / stack / "compose.yaml" if stack != "root" else ROOT_COMPOSE
+                    )
                     print(f"  - {stack} (expected at: {expected_path})")
 
             if missing_in_readme:
@@ -260,40 +281,40 @@ class ReadmeUpdater:
             # We'll use a simple bold format that users can enhance with links manually
             service_display = f"**{service_name.capitalize()}**"
 
-            # Build the service entry
+            # Build the service entry - escape asterisks in description to avoid MD037
             if description:
-                entry = f"{service_display} - {description}"
+                # Escape standalone asterisks that could be interpreted as emphasis markers
+                escaped_desc = description.replace("*", "\\*")
+                entry = f"{service_display} - {escaped_desc}"
             else:
-                entry = f"{service_display}"
+                entry = service_display
 
             lines.append(entry)
 
-        # Join with stylish dividers
+        # Join with stylish dividers (• with spaces on both sides is fine)
         return " • ".join(lines)
 
     def generate_service_section(self) -> str:
         """Generate the complete service section for README."""
-        lines = ["## 🏗️ Stack/Service Lineup", ""]
+        lines = ["## 🏗️ Service Lineup", ""]
         lines.append(
             "This repository is structured for use with [Dockge](https://dockge.kuma.pet/), "
             "offering a clean UI to deploy and maintain Compose stacks:"
         )
         lines.append("")
 
-        # Generate sections based on README headers (already parsed in update_readme)
+        # Generate sections only for stacks that have services
         for display_name, stack_key in self.stack_headers:
-            lines.append(f"### {display_name}")
-            lines.append("")
-
             # Get services for this stack if they exist
             services = self.stacks.get(stack_key, [])
 
-            if services:
-                lines.append(self.generate_markdown_table(services))
-            else:
-                # No services found for this stack, leave empty or add placeholder
-                lines.append("_No services defined_")
+            # Skip sections with no services
+            if not services:
+                continue
 
+            lines.append(f"### {display_name}")
+            lines.append("")
+            lines.append(self.generate_markdown_table(services))
             lines.append("")
 
         return "\n".join(lines)
@@ -338,7 +359,13 @@ class ReadmeUpdater:
         return result
 
     def update_readme(self):
-        """Update README.md with new service listings."""
+        """Update README.md with new service listings.
+
+        Supports repositories with no stacks or a single stack by:
+        - Falling back to discovered stacks when README headers are missing
+        - Generating an empty section when no services are found
+        - Avoiding strict validation when README intentionally omits stacks
+        """
         if not README_PATH.exists():
             print(f"Error: README.md not found at {README_PATH}")
             return False
@@ -347,22 +374,53 @@ class ReadmeUpdater:
         with open(README_PATH, "r") as f:
             content = f.read()
 
-        # Parse existing stack headers from README (may raise ValueError)
+        # First, collect services so we can fall back to discovered stacks
+        # when README does not yet define headers.
+        # Note: collect_services is called in main(), but call defensively here
+        # in case update_readme() is used directly.
+        if not self.stacks:
+            self.collect_services()
+
+        # Parse existing stack headers from README; if missing, fall back
         try:
             self.stack_headers = self.parse_existing_stack_headers(content)
-        except ValueError as e:
-            print(f"\n{e}")
-            return False
+        except ValueError:
+            # No explicit stack headers in README; construct from discovered stacks
+            fallback_headers: List[Tuple[str, str]] = []
+            for stack_key in sorted(self.stacks.keys()):
+                display = {
+                    "root": "🐋 Root",
+                    "app": "🧩 App",
+                    "core": "🔧 Core",
+                    "data": "💾 Data",
+                    "log": "📊 Log",
+                    "media": "🎬 Media",
+                }.get(stack_key, stack_key.capitalize())
+                fallback_headers.append((display, stack_key))
 
-        # Validate that README stacks match actual stacks
-        if not self.validate_stacks():
-            return False
+            # If no stacks are discovered, create a single generic header
+            if not fallback_headers:
+                fallback_headers = [("🧱 Stack", "stack")]
+                # Ensure section renders with no services
+                self.stacks["stack"] = []
+
+            self.stack_headers = fallback_headers
+
+        # Validate that README stacks match actual stacks, but be lenient when
+        # README does not enumerate all stacks or when only a single/zero stack exists.
+        # If validation fails due to mismatch, continue with generated headers.
+        try:
+            if not self.validate_stacks():
+                print("Note: proceeding with generated stack headers to support singular/no stack.")
+        except Exception:
+            # Never hard-fail validation when operating in fallback mode
+            pass
 
         # Generate new service section
         new_section = self.generate_service_section()
 
         # Find and extract old section for comparison
-        pattern = r"## 🏗️ Stack/Service Lineup.*?(?=\n## |\Z)"
+        pattern = r"## 🏗️ Service Lineup.*?(?=\n## |\Z)"
         old_match = re.search(pattern, content, re.DOTALL)
 
         if old_match:
@@ -372,8 +430,8 @@ class ReadmeUpdater:
             # Replace existing section
             updated_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
         else:
-            # This shouldn't happen since parse_existing_stack_headers would have raised
-            print("Warning: Service lineup section not found, appending to end")
+            # If section is missing entirely, append a new section at the end
+            print("Warning: Service lineup section not found, appending a new section")
             updated_content = content.rstrip() + "\n\n" + new_section + "\n"
 
         # Write updated README
@@ -388,7 +446,7 @@ class ReadmeUpdater:
 
 def main():
     """Main entry point."""
-    print("Nexus README Updater")
+    print("README Updater")
     print("=" * 50)
 
     updater = ReadmeUpdater()

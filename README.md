@@ -10,7 +10,7 @@
 
 ## ✨ Overview
 
-Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing catalog using Docker Compose stacks.
+Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing catalog with a focus on modularity, observability, and ease of management.
 
 ## ⚠️ Disclaimer
 
@@ -30,16 +30,13 @@ Born from consolidating numerous containers onto my TrueNAS server, this project
 
 - 🚀 Push to `nx start` (😅) simplicity for deploying dozens of containers on a single host
 - 🧰 Dockge & Portainer included for additional point-and-click controls
-- 🧱 Clearly separated stacks (`app`, `media`, `data`, etc.) for modular upgrades
 - 📊 First-class observability via Prometheus, Grafana, Loki, Dozzle, Beszel, & more!
 - 🗂️ Monorepo structure keeps Compose services, env vars, and docs in one place with many improvements to come
 
 ## 📋 Best Practices
 
-- 📂 Each stack ships with its own `compose.yaml` and `.env` file. Dockge auto-imports them on startup.
 - 🔐 Keep sensitive values in the stack-specific `.env` files and never commit secrets to the repo.
 - 🧩 Modify only the `.env` of the stack you intend to change to keep configurations isolated.
-- ✨ Feel free to add, remove or modify stacks to your liking!
 - ⚙️ Use `nx <command>` for everyday lifecycle tasks (start, stop, logs, backups, etc.).
 - 📈 Monitor stack health via Beszel, Dockpeek, Dockge or Portainer.
 - ♻️ By default, Watchtower will keep all deployed services up-to-date.
@@ -180,48 +177,10 @@ nx update
 
 Automated updates are handled by [Watchtower](https://containrrr.dev/watchtower/).
 
-## 📁 Project Structure
-
-```text
-stacks/
-├── app/
-│   ├── .env
-│   └── compose.yaml
-├── core/
-│   ├── .env
-│   └── compose.yaml
-...
-├── log/
-│   ├── .env
-│   └── compose.yaml
-```
-
-Stacks are intentionally scoped so you can update, pause, or extend categories independently.
-
-## 🏗️ Stack/Service Lineup
+## 🏗️ Service Lineup
 
 This repository is structured for use with [Dockge](https://dockge.kuma.pet/), offering a clean UI to deploy and maintain Compose stacks:
 
 ### 🐋 Root
 
-[**Dockge**](https://dockge.kuma.pet/) - Docker GUI
-
-### 🧩 App
-
-**Excalidraw** • **Mytabs** • **Omni-tools** • **Searxng**
-
-### 🔧 Core
-
-**Adguard** - Ad-Blocking DNS Server • **Authelia** • **Docker-socket-proxy** • **Dockpeek** • **Dozzle** • **Homepage** • **Portainer** - Container Management • **Tailscale** • **Traefik** - Reverse proxy for exposing apps via HTTPS • **Trala** • **Watchtower**
-
-### 💾 Data
-
-**Gotenberg** • **Immich** - Photo management and backup • **Immich-machine-learning** • **Mariadb** • **Nextcloud** - Cloud storage and collaboration • **Paperless** - Paperless Document Management • **Pgadmin** - PostgreSQL Management Tool • **Postgres** • **Redis** • **Syncthing** - File synchronization • **Tika** • **Valkey**
-
-### 📊 Log
-
-**Apprise** • **Beszel** - Lightweight server monitoring platform • **Beszel-agent** • **Cadvisor** • **Glances** - System Monitoring Tool • **Grafana** - Metrics Visualizer • **Harborguard** • **Intel-gpu-exporter** • **Kromgo** • **Loggifly** • **Loki** • **Node-exporter** • **Ntfy** • **Plex-exporter** • **Prometheus** - Metrics collection • **Promtail** • **Smartctl-exporter**
-
-### 🎬 Media
-
-**Agregarr** • **Audiodeck** • **Bazarr** - Subtitle Curator • **Flaresolverr** • **Gluetun** - VPN client for containers • **Jellyfin** - Media Server • **Lidarr** - Personal Music Curator • **Navidrome** - Personal Music Streamer • **Overseerr** - Media Server Request Management • **Plex** - Media Server • **Profilarr** - Profile Management for *arrs • **Prowlarr** - Indexer Manager for *arrs • **Qbittorrent** - BitTorrent client for ISOs • **Radarr** - Personal Movie Curator • **Sabnzbd** - Binary Newsreader • **Sonarr** - Personal Series Curator • **Tautulli** - Media Server Companion • **Unpackerr** • **Wizarr**
+**Adguard** - Ad-Blocking DNS Server • **Agregarr** • **Apprise** • **Audiodeck** • **Authelia** • **Bazarr** - Subtitle Curator • **Beszel** - Lightweight server monitoring platform • **Beszel-agent** • **Cadvisor** • **Crowdsec** • **Docker-socket-proxy** • [**Dockge**](https://dockge.kuma.pet/) - Docker GUI • **Dockpeek** • **Dozzle** • **Duplicati** • **Excalidash-backend** • **Excalidash-frontend** • **Excalidraw** • **Flaresolverr** • **Garage** • **Glances** - System Monitoring Tool • **Gluetun** - VPN client for containers • **Gotenberg** • **Grafana** - Metrics Visualizer • **Harborguard** • **Homepage** • **Imdbarr** • **Immich** - Photo management and backup • **Immich-machine-learning** • **Intel-gpu-exporter** • **Jellyfin** - Media Server • **Kromgo** • **Lidarr** - Personal Music Curator • **Loggifly** • **Loki** • **Mariadb** • **Meilisearch** • **Mytabs** • **N8n** • **Navidrome** - Personal Music Streamer • **Newt** - Pangolin tunneled site & network connector • **Nextcloud** - Cloud storage and collaboration • **Node-exporter** • **Ntfy** • **Omni-tools** • **Overseerr** - Media Server Request Management • **Paperless** - Paperless Document Management • **Pgadmin** - PostgreSQL Management Tool • **Plex** - Media Server • **Plex-exporter** • **Portainer** - Container Management • **Postgres** • **Profilarr** - Profile Management for \*arrs • **Prometheus** - Metrics collection • **Promtail** • **Prowlarr** - Indexer Manager for \*arrs • **Qbittorrent** - BitTorrent client for ISOs • **Radarr** - Personal Movie Curator • **Redis** • **Sabnzbd** - Binary Newsreader • **Searxng** • **Smartctl-exporter** • **Sonarr** - Personal Series Curator • **Stringer** • **Syncthing** - File synchronization • **Tailscale** • **Tautulli** - Media Server Companion • **Tika** • **Traefik** - Reverse proxy for exposing apps via HTTPS • **Trala** • **Unpackerr** • **Valkey** • **Watchtower** - Container Update Automation • **Wizarr**
