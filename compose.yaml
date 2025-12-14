@@ -414,7 +414,7 @@ services:
       start_period: 60s
       test: [ "CMD-SHELL", "curl -f http://localhost:8200 || exit 1" ]
       timeout: 10s
-    image: lscr.io/linuxserver/duplicati:latest
+    image: lscr.io/linuxserver/duplicati
     labels:
       traefik.enable: true
       traefik.http.routers.duplicati.middlewares: authelia@docker
@@ -1909,7 +1909,7 @@ services:
       start_period: 60s
       test: [ "CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080 | grep -q '^[23]' || exit 1" ]
       timeout: 10s
-    image: stringerrss/stringer:latest
+    image: stringerrss/stringer
     labels:
       traefik.enable: true
       traefik.http.routers.stringer.rule: Host(`stringer.${DOMAIN}`) || Host(`rss.${DOMAIN}`)
