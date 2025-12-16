@@ -89,6 +89,10 @@ services:
     image: caronc/apprise
     labels:
       traefik.enable: true
+      traefik.http.routers.apprise-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.apprise-gatus.priority: 100
+      traefik.http.routers.apprise-gatus.rule: Host(`apprise.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.apprise-gatus.service: apprise
       traefik.http.routers.apprise.middlewares: authelia@docker
       traefik.http.routers.apprise.rule: Host(`apprise.${DOMAIN:?no domain defined}`) || Host(`notify.${DOMAIN:?no domain defined}`)
       traefik.http.services.apprise.loadbalancer.server.port: 8000
@@ -179,6 +183,10 @@ services:
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
       traefik.enable: true
+      traefik.http.routers.bazarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.bazarr-gatus.priority: 100
+      traefik.http.routers.bazarr-gatus.rule: Host(`bazarr.${DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.bazarr-gatus.service: bazarr
       traefik.http.routers.bazarr.middlewares: authelia@docker
       traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN}`) || Host(`subtitles.${DOMAIN}`)
       traefik.http.routers.bazarr.service: bazarr
@@ -953,8 +961,12 @@ services:
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
       traefik.enable: true
+      traefik.http.routers.lidarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.lidarr-gatus.priority: 100
+      traefik.http.routers.lidarr-gatus.rule: Host(`lidarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.lidarr-gatus.service: lidarr
       traefik.http.routers.lidarr.middlewares: authelia@docker
-      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN}`) || Host(`audio.${DOMAIN}`)
+      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN}`)
       traefik.http.services.lidarr.loadbalancer.server.port: 8686
     restart: unless-stopped
     security_opt:
@@ -1560,6 +1572,10 @@ services:
       homepage.icon: profilarr
       homepage.name: Profilarr
       traefik.enable: true
+      traefik.http.routers.profilarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.profilarr-gatus.priority: 100
+      traefik.http.routers.profilarr-gatus.rule: Host(`profilarr.${DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.profilarr-gatus.service: profilarr
       traefik.http.routers.profilarr.middlewares: authelia@docker
       traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN}`)
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
@@ -1662,6 +1678,10 @@ services:
       homepage.widget.type: prowlarr
       homepage.widget.url: http://prowlarr:9696
       traefik.enable: true
+      traefik.http.routers.prowlarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.prowlarr-gatus.priority: 100
+      traefik.http.routers.prowlarr-gatus.rule: Host(`prowlarr.${DOMAIN}`) && PathPrefix(`/api/v1/health`)
+      traefik.http.routers.prowlarr-gatus.service: prowlarr
       traefik.http.routers.prowlarr.middlewares: authelia@docker
       traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN}`)
       traefik.http.services.prowlarr.loadbalancer.server.port: 9696
@@ -1746,6 +1766,10 @@ services:
       homepage.widget.type: radarr
       homepage.widget.url: http://radarr:7878
       traefik.enable: true
+      traefik.http.routers.radarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.radarr-gatus.priority: 100
+      traefik.http.routers.radarr-gatus.rule: Host(`radarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.radarr-gatus.service: radarr
       traefik.http.routers.radarr.middlewares: authelia@docker
       traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN}`) || Host(`movies.${DOMAIN}`)
       traefik.http.services.radarr.loadbalancer.server.port: 7878
@@ -1804,6 +1828,10 @@ services:
       homepage.widget.type: sabnzbd
       homepage.widget.url: http://sabnzbd:8080
       traefik.enable: true
+      traefik.http.routers.sabnzbd-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.sabnzbd-gatus.priority: 100
+      traefik.http.routers.sabnzbd-gatus.rule: Host(`sabnzbd.${DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.sabnzbd-gatus.service: sabnzbd
       traefik.http.routers.sabnzbd.middlewares: authelia@docker
       traefik.http.routers.sabnzbd.rule: Host(`sabnzbd.${DOMAIN}`) || Host(`nzb.${DOMAIN}`)
       traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
@@ -1880,6 +1908,10 @@ services:
       homepage.widget.type: sonarr
       homepage.widget.url: http://sonarr:8989
       traefik.enable: true
+      traefik.http.routers.sonarr-gatus.middlewares: authelia-basic@docker
+      traefik.http.routers.sonarr-gatus.priority: 100
+      traefik.http.routers.sonarr-gatus.rule: Host(`sonarr.${DOMAIN}`) && PathPrefix(`/ping`)
+      traefik.http.routers.sonarr-gatus.service: sonarr
       traefik.http.routers.sonarr.middlewares: authelia@docker
       traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN}`) || Host(`series.${DOMAIN}`)
       traefik.http.services.sonarr.loadbalancer.server.port: 8989
