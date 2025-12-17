@@ -1986,15 +1986,19 @@ services:
   tailscale:
     cap_add:
       - NET_ADMIN
-      - SYS_MODULE
+      - NET_RAW
     cap_drop:
       - ALL
     container_name: tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
-      TS_EXTRA_ARGS: "--accept-routes=true --advertise-routes=192.168.10.0/24 --advertise-exit-node=true"
+      TS_EXTRA_ARGS: --accept-routes=false --advertise-exit-node=true
+      TS_ROUTES: 192.168.1.0/24,192.168.10.0/24
       TS_SOCKET: /var/run/tailscale/tailscaled.sock
       TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
     healthcheck:
       interval: 30s
       retries: 3
@@ -2003,13 +2007,11 @@ services:
       timeout: 10s
     hostname: nexus
     image: tailscale/tailscale
-    labels:
-      traefik.enable: false
+    network_mode: host
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
       - ${DATA_PATH}/tailscale:/var/run/tailscale
-      - /dev/net/tun:/dev/net/tun
   tautulli:
     # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
