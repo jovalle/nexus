@@ -242,36 +242,26 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
-  crowdsec:
-    cap_add:
-      - DAC_READ_SEARCH
+  cloudflared:
     cap_drop:
       - ALL
-    container_name: crowdsec
+    command: tunnel --no-autoupdate run
+    container_name: cloudflared
     environment:
-      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
-      ENROLL_INSTANCE_NAME: pangolin-crowdsec
-      ENROLL_TAGS: docker
-      GID: "${GID:-1000}"
-      PARSERS: crowdsecurity/whitelists
+      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN:?no cloudflared token provided}
     healthcheck:
       interval: 30s
-      retries: 3
+      retries: 5
       start_period: 60s
-      test: [ "CMD-SHELL", "cscli version || exit 1" ]
+      test: [ "CMD", "cloudflared", "version" ]
       timeout: 10s
-    image: crowdsecurity/crowdsec
-    labels:
-      traefik.enable: false
-    ports:
-      - 6060:6060
+    hostname: nexus
+    image: cloudflare/cloudflared
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/crowdsec:/etc/crowdsec
-      - ${DATA_PATH}/crowdsec/db:/var/lib/crowdsec/data
-      - ${DATA_PATH}/traefik/logs:/var/log/traefik:ro
+    user: "65532:65532"
   docker-socket-proxy:
     container_name: docker-socket-proxy
     environment:
