@@ -163,12 +163,6 @@ nx validate          # Validate all compose files
 
 ### Updating
 
-Update the service listings in README:
-
-```sh
-nx fmt
-```
-
 Update containers to latest versions:
 
 ```sh
@@ -176,11 +170,3 @@ nx update
 ```
 
 Automated updates are handled by [Watchtower](https://containrrr.dev/watchtower/).
-
-## 🏗️ Service Lineup
-
-This repository is structured for use with [Dockge](https://dockge.kuma.pet/), offering a clean UI to deploy and maintain Compose stacks:
-
-### 🐋 Root
-
-**Adguard** - Ad-Blocking DNS Server • **Agregarr** • **Apprise** • **Audiodeck** • **Authelia** • **Bazarr** - Subtitle Curator • **Beszel** - Lightweight server monitoring platform • **Beszel-agent** • **Cadvisor** • **Crowdsec** • **Docker-socket-proxy** • [**Dockge**](https://dockge.kuma.pet/) - Docker GUI • **Dockpeek** • **Dozzle** • **Duplicati** • **Excalidash-backend** • **Excalidash-frontend** • **Excalidraw** • **Flaresolverr** • **Garage** • **Glances** - System Monitoring Tool • **Gluetun** - VPN client for containers • **Gotenberg** • **Grafana** - Metrics Visualizer • **Harborguard** • **Homepage** • **Imdbarr** • **Immich** - Photo management and backup • **Immich-machine-learning** • **Intel-gpu-exporter** • **Jellyfin** - Media Server • **Kromgo** • **Lidarr** - Personal Music Curator • **Loggifly** • **Loki** • **Mariadb** • **Meilisearch** • **Mytabs** • **N8n** • **Navidrome** - Personal Music Streamer • **Newt** - Pangolin tunneled site & network connector • **Nextcloud** - Cloud storage and collaboration • **Node-exporter** • **Ntfy** • **Omni-tools** • **Overseerr** - Media Server Request Management • **Paperless** - Paperless Document Management • **Pgadmin** - PostgreSQL Management Tool • **Plex** - Media Server • **Plex-exporter** • **Portainer** - Container Management • **Postgres** • **Profilarr** - Profile Management for \*arrs • **Prometheus** - Metrics collection • **Promtail** • **Prowlarr** - Indexer Manager for \*arrs • **Qbittorrent** - BitTorrent client for ISOs • **Radarr** - Personal Movie Curator • **Redis** • **Sabnzbd** - Binary Newsreader • **Searxng** • **Smartctl-exporter** • **Sonarr** - Personal Series Curator • **Stringer** • **Syncthing** - File synchronization • **Tailscale** • **Tautulli** - Media Server Companion • **Tika** • **Traefik** - Reverse proxy for exposing apps via HTTPS • **Trala** • **Unpackerr** • **Valkey** • **Watchtower** - Container Update Automation • **Wizarr**

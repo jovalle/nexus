@@ -7,5 +7,3 @@
 archive/*
 backups/
 docker/syncthing/Sync/
-docker/traefik/dynamic.yaml
-stacks/
