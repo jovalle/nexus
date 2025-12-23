@@ -163,8 +163,8 @@ services:
       - no-new-privileges:true
     volumes:
       - ${DATA_PATH}/bazarr:/config
-      - ${MEDIA_PATH}/movies:/movies
-      - ${MEDIA_PATH}/series:/series
+      - ${MEDIA_PATH}/movies:/movies:ro
+      - ${MEDIA_PATH}/series:/series:ro
   beszel:
     cap_drop:
       - ALL
@@ -848,7 +848,7 @@ services:
       - no-new-privileges:true
     volumes:
       - ${DATA_PATH}/jellyfin:/config
-      - ${MEDIA_PATH:?media path not defined}:/media:ro
+      - ${MEDIA_PATH}:/media:ro
   kromgo:
     cap_drop:
       - ALL
@@ -1082,22 +1082,21 @@ services:
       - ${DATA_PATH}/navidrome:/data
       - ${MEDIA_PATH}/music:/music:ro
   newt:
-    cap_drop:
-      - ALL
     container_name: newt
     environment:
+      DOCKER_SOCKET: /var/run/docker.sock
+      LOG_LEVEL: DEBUG
       NEWT_ID: ${NEWT_ID:?newt id not define}
       NEWT_SECRET: ${NEWT_SECRET:?newt secret not defined}
       PANGOLIN_ENDPOINT: https://pangolin.${DOMAIN}
     healthcheck:
       disable: true
     image: fosrl/newt
-    labels:
-      homepage.description: Pangolin tunneled site & network connector
-      traefik.enable: false
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   nextcloud:
     cap_add:
       - CHOWN
@@ -1390,7 +1389,7 @@ services:
       - no-new-privileges:true
     volumes:
       - ${DATA_PATH}/plex:/config
-      - ${MEDIA_PATH}:/media
+      - ${MEDIA_PATH}:/media:ro
       - /dev/shm/transcode:/transcode
   plex-exporter:
     cap_drop:
@@ -1990,8 +1989,6 @@ services:
       - --api.dashboard=true
       - --api.insecure=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
-      - --experimental.plugins.traefik-oidc-auth.modulename=github.com/sevensolutions/traefik-oidc-auth
-      - --experimental.plugins.traefik-oidc-auth.version=v0.17.0
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/letsencrypt/acme.json
@@ -2011,7 +2008,7 @@ services:
       - --log.level=INFO
       - --ping.entrypoint=websecure
       - --ping=true
-      - --providers.docker.defaultRule=Host(`{{ index .Labels "com.docker.compose.service" }}.${DOMAIN}`)
+      - --providers.docker.defaultRule=Host(`{{ index .Labels "com.docker.compose.service" }}.${DOMAIN}`) || Host(`{{ index .Labels "com.docker.compose.service" }}.nexus.${DOMAIN}`)
       - --providers.docker.exposedbydefault=false
       - --providers.docker=true
       - --providers.file.filename=/etc/traefik/dynamic.yaml
@@ -2032,7 +2029,7 @@ services:
       interval: 30s
       retries: 3
       start_period: 30s
-      test: [ "CMD-SHELL", "traefik healthcheck --ping" ]
+      test: [ "CMD", "traefik", "version" ]
       timeout: 10s
     hostname: traefik
     image: traefik
@@ -2041,9 +2038,9 @@ services:
       homepage.group: Core
       homepage.href: https://traefik.nexus.${DOMAIN}
       homepage.icon: traefik
-      homepage.name: Traefik 2
+      homepage.name: Traefik (nexus)
       homepage.widget.type: traefik
-      homepage.widget.url: http://host.docker.internal:8080
+      homepage.widget.url: http://traefik:8080
       traefik.enable: true
       traefik.http.routers.traefik.rule: Host(`traefik.nexus.${DOMAIN}`)
       traefik.http.routers.traefik.service: api@internal
@@ -2052,6 +2049,7 @@ services:
       - 80:80
       - 443:443
       - 8080:8080
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
