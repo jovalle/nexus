@@ -89,11 +89,7 @@ services:
     image: caronc/apprise
     labels:
       traefik.enable: true
-      traefik.http.routers.apprise-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.apprise-gatus.priority: 100
-      traefik.http.routers.apprise-gatus.rule: Host(`apprise.${DOMAIN}`) && PathPrefix(`/ping`)
-      traefik.http.routers.apprise-gatus.service: apprise
-      traefik.http.routers.apprise.middlewares: internal-oidc@file
+      traefik.http.routers.apprise.middlewares: basic-auth@file
       traefik.http.services.apprise.loadbalancer.server.port: 8000
     restart: unless-stopped
     security_opt:
@@ -152,11 +148,7 @@ services:
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
       traefik.enable: true
-      traefik.http.routers.bazarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.bazarr-gatus.priority: 100
-      traefik.http.routers.bazarr-gatus.rule: Host(`bazarr.${DOMAIN}`) && PathPrefix(`/ping`)
-      traefik.http.routers.bazarr-gatus.service: bazarr
-      traefik.http.routers.bazarr.middlewares: internal-oidc@file
+      traefik.http.routers.bazarr.middlewares: basic-auth@file
       traefik.http.services.bazarr.loadbalancer.server.port: 6767
     restart: unless-stopped
     security_opt:
@@ -378,7 +370,7 @@ services:
     image: lscr.io/linuxserver/duplicati
     labels:
       traefik.enable: true
-      traefik.http.routers.duplicati.middlewares: internal-oidc@file
+      traefik.http.routers.duplicati.middlewares: basic-auth@file
       traefik.http.services.duplicati.loadbalancer.server.port: 8200
     restart: unless-stopped
     security_opt:
@@ -901,11 +893,7 @@ services:
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
       traefik.enable: true
-      traefik.http.routers.lidarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.lidarr-gatus.priority: 100
-      traefik.http.routers.lidarr-gatus.rule: Host(`lidarr.${DOMAIN}`) && PathPrefix(`/api`)
-      traefik.http.routers.lidarr-gatus.service: lidarr
-      traefik.http.routers.lidarr.middlewares: internal-oidc@file
+      traefik.http.routers.lidarr.middlewares: basic-auth@file
       traefik.http.services.lidarr.loadbalancer.server.port: 8686
     restart: unless-stopped
     security_opt:
@@ -1501,11 +1489,7 @@ services:
       homepage.icon: profilarr
       homepage.name: Profilarr
       traefik.enable: true
-      traefik.http.routers.profilarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.profilarr-gatus.priority: 100
-      traefik.http.routers.profilarr-gatus.rule: Host(`profilarr.${DOMAIN}`) && PathPrefix(`/api`)
-      traefik.http.routers.profilarr-gatus.service: profilarr
-      traefik.http.routers.profilarr.middlewares: internal-oidc@file
+      traefik.http.routers.profilarr.middlewares: basic-auth@file
       traefik.http.services.profilarr.loadbalancer.server.port: 6868
     ports:
       - 6868:6868
@@ -1605,11 +1589,8 @@ services:
       homepage.widget.type: prowlarr
       homepage.widget.url: http://prowlarr:9696
       traefik.enable: true
-      traefik.http.routers.prowlarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.prowlarr-gatus.priority: 100
-      traefik.http.routers.prowlarr-gatus.rule: Host(`prowlarr.${DOMAIN}`) && PathPrefix(`/api/v1/health`)
-      traefik.http.routers.prowlarr-gatus.service: prowlarr
-      traefik.http.routers.prowlarr.middlewares: authelia@file
+      traefik.http.routers.prowlarr.middlewares: basic-auth@file
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN}`)
       traefik.http.services.prowlarr.loadbalancer.server.port: 9696
     restart: unless-stopped
     security_opt:
@@ -1691,11 +1672,7 @@ services:
       homepage.widget.type: radarr
       homepage.widget.url: http://radarr:7878
       traefik.enable: true
-      traefik.http.routers.radarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.radarr-gatus.priority: 100
-      traefik.http.routers.radarr-gatus.rule: Host(`radarr.${DOMAIN}`) && PathPrefix(`/ping`)
-      traefik.http.routers.radarr-gatus.service: radarr
-      traefik.http.routers.radarr.middlewares: internal-oidc@file
+      traefik.http.routers.radarr.middlewares: basic-auth@file
       traefik.http.services.radarr.loadbalancer.server.port: 7878
     restart: unless-stopped
     security_opt:
@@ -1752,11 +1729,7 @@ services:
       homepage.widget.type: sabnzbd
       homepage.widget.url: http://sabnzbd:8080
       traefik.enable: true
-      traefik.http.routers.sabnzbd-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.sabnzbd-gatus.priority: 100
-      traefik.http.routers.sabnzbd-gatus.rule: Host(`sabnzbd.${DOMAIN}`) && PathPrefix(`/api`)
-      traefik.http.routers.sabnzbd-gatus.service: sabnzbd
-      traefik.http.routers.sabnzbd.middlewares: internal-oidc@file
+      traefik.http.routers.sabnzbd.middlewares: basic-auth@file
       traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
     ports:
       - 8085:8080
@@ -1833,11 +1806,7 @@ services:
       homepage.widget.type: sonarr
       homepage.widget.url: http://sonarr:8989
       traefik.enable: true
-      traefik.http.routers.sonarr-gatus.middlewares: authelia-basic@file
-      traefik.http.routers.sonarr-gatus.priority: 100
-      traefik.http.routers.sonarr-gatus.rule: Host(`sonarr.${DOMAIN}`) && PathPrefix(`/ping`)
-      traefik.http.routers.sonarr-gatus.service: sonarr
-      traefik.http.routers.sonarr.middlewares: internal-oidc@file
+      traefik.http.routers.sonarr.middlewares: basic-auth@file
       traefik.http.services.sonarr.loadbalancer.server.port: 8989
     restart: unless-stopped
     security_opt:
@@ -2003,8 +1972,6 @@ services:
       - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN}
       - --entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN},*.nexus.${DOMAIN}
       - --entrypoints.websecure.http.tls=true
-      - --experimental.plugins.traefik-oidc-auth.modulename=github.com/sevensolutions/traefik-oidc-auth
-      - --experimental.plugins.traefik-oidc-auth.version=v0.17.0
       - --log.level=INFO
       - --ping.entrypoint=websecure
       - --ping=true
@@ -2019,9 +1986,6 @@ services:
       CLOUDFLARE_DNS_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?no cloudflare api token provided}
       CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:?no cloudflare email provided}
       DOMAIN: ${DOMAIN:?no domain provided}
-      POCKET_ID_CLIENT_ID: ${POCKET_ID_CLIENT_ID:?no pocket id client id provided}
-      POCKET_ID_CLIENT_SECRET: ${POCKET_ID_CLIENT_SECRET:?no pocket id client secret provided}
-      POCKET_ID_OIDC_SECRET: ${POCKET_ID_OIDC_SECRET:?no pocket id oidc secret provided}
       TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${CLOUDFLARE_EMAIL:?no cloudflare email provided}
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -2136,37 +2100,6 @@ services:
       - no-new-privileges:true
     volumes:
       - ${DATA_PATH}/valkey:/data
-  watchtower:
-    cap_drop:
-      - ALL
-    container_name: watchtower
-    environment:
-      WATCHTOWER_CLEANUP: true
-      WATCHTOWER_DEBUG: true
-      WATCHTOWER_HTTP_API_METRICS: true
-      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
-      WATCHTOWER_SCHEDULE: 0 0 4 * * *
-    healthcheck:
-      interval: 60s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "/watchtower", "--health-check" ]
-      timeout: 10s
-    image: containrrr/watchtower
-    labels:
-      homepage.description: Container Update Automation
-      homepage.group: Core
-      homepage.icon: watchtower
-      homepage.name: Watchtower
-      homepage.widget.fields: '["containers_scanned", "containers_updated", "containers_failed"]'
-      homepage.widget.key: ${WATCHTOWER_HTTP_API_TOKEN:?watchtower API token not defined}
-      homepage.widget.type: watchtower
-      homepage.widget.url: http://watchtower:8080
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
   wizarr:
     # nx:root-allowed - handles user switching internally
     cap_add:
