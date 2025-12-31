@@ -651,6 +651,8 @@ services:
     cap_drop:
       - ALL
     container_name: harborguard
+    environment:
+      ENABLED_SCANNERS: trivy,grype,syft,dockle,osv,dive
     healthcheck:
       interval: 30s
       retries: 3
