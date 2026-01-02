@@ -2075,3 +2075,33 @@ services:
     volumes:
       - ${DATA_PATH}/wizarr/database:/data/database
       - ${DATA_PATH}/wizarr/wizard:/data/wizard_steps
+  watchtower:
+    cap_drop:
+      - ALL
+    container_name: watchtower
+    environment:
+      IMDB_WATCHLISTS: ${WATCHTOWER_IMDB_WATCHLISTS:-}
+      PLEX_CLIENT_ID: ${WATCHTOWER_PLEX_CLIENT_ID:-}
+      PLEX_SERVER_URL: ${WATCHTOWER_PLEX_SERVER_URL:-}
+      PLEX_TOKEN: ${WATCHTOWER_PLEX_TOKEN:-}
+      PORT: ${WATCHTOWER_PORT:-9001}
+      SESSION_SECRET: ${WATCHTOWER_SESSION_SECRET:?watchtower session secret not defined}
+      TMDB_API_KEY: ${WATCHTOWER_TMDB_API_KEY:-}
+      TRAKT_CLIENT_ID: ${WATCHTOWER_TRAKT_CLIENT_ID:-}
+      TRAKT_CLIENT_SECRET: ${WATCHTOWER_TRAKT_CLIENT_SECRET:-}
+      TRAKT_USERNAME: ${WATCHTOWER_TRAKT_USERNAME:-}
+    image: ghcr.io/jovalle/watchtower
+    labels:
+      homepage.description:
+      homepage.group: Tools
+      homepage.href: https://watchtower.${DOMAIN}
+      homepage.icon: 'https://ik.imagekit.io/technis/w-cropped.png'
+      homepage.name: watchtower
+    ports:
+      - 9001:9001
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: 1001:1001
+    volumes:
+      - ${DATA_PATH}/watchtower:/data
