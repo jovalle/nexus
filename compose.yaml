@@ -30,7 +30,6 @@ services:
       homepage.widget.type: adguard
       homepage.widget.url: http://adguard
       homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
-      traefik.enable: true
       traefik.http.routers.adguard.rule: Host(`adguard.nexus.${DOMAIN}`)
       traefik.http.services.adguard.loadbalancer.server.port: 80
     ports:
@@ -50,7 +49,6 @@ services:
       - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
       - ${DATA_PATH}/adguard/work:/opt/adguardhome/work
   agregarr:
-    # nx:root-allowed - handles user switching internally
     cap_drop:
       - ALL
     container_name: agregarr
@@ -85,7 +83,6 @@ services:
       timeout: 10s
     image: caronc/apprise
     labels:
-      traefik.enable: true
       traefik.http.routers.apprise.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -111,7 +108,6 @@ services:
     volumes:
       - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
   bazarr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -140,7 +136,6 @@ services:
       homepage.widget.key: ${BAZARR_API_KEY:-}
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
-      traefik.enable: true
       traefik.http.routers.bazarr.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -360,7 +355,6 @@ services:
       timeout: 10s
     image: lscr.io/linuxserver/duplicati
     labels:
-      traefik.enable: true
       traefik.http.routers.duplicati.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -370,7 +364,6 @@ services:
       - ${DATA_PATH}:/source:ro
       - ${BACKUP_PATH:?backup path required}:/backups
   excalidash-backend:
-    # nx:root-allowed - uses su-exec for user switching
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -396,9 +389,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${DATA_PATH}/excalidash/backend:/app/prisma
-
   excalidash-frontend:
-    # nx:root-allowed - nginx needs to chown cache directories
     cap_add:
       - CHOWN
       - SETGID
@@ -439,7 +430,6 @@ services:
     volumes:
       - ${DATA_PATH:?data path not defined}/excalidraw:/data
   flaresolverr:
-    # nx:root-allowed - needs root for headless browser
     cap_add:
       - SYS_ADMIN
     cap_drop:
@@ -517,7 +507,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/os-release:/etc/os-release:ro
   gluetun:
-    # nx:root-allowed - VPN requires NET_ADMIN capability
     cap_add:
       - NET_ADMIN
     cap_drop:
@@ -773,7 +762,6 @@ services:
     security_opt:
       - no-new-privileges:true
   jellyfin:
-    # nx:root-allowed - needs root for hardware transcoding
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -805,7 +793,6 @@ services:
       homepage.widget.streamOneStreamToTwoRows: true
       homepage.widget.type: jellyfin
       homepage.widget.url: http://host.docker.internal:8096
-      traefik.enable: true
       traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
     network_mode: host
     restart: unless-stopped
@@ -837,7 +824,6 @@ services:
     volumes:
       - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml:ro
   lidarr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -864,7 +850,6 @@ services:
       homepage.widget.key: ${LIDARR_API_KEY:-}
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
-      traefik.enable: true
       traefik.http.routers.lidarr.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -959,7 +944,6 @@ services:
     volumes:
       - ${DATA_PATH}/meilisearch:/meili_data
   mytabs:
-    # nx:root-allowed - needs to change file ownership on startup
     cap_add:
       - CHOWN
       - SETGID
@@ -1001,7 +985,6 @@ services:
     volumes:
       - ${DATA_PATH}/n8n:/home/node/.n8n
   navidrome:
-    # nx:root-allowed - handles user switching internally
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1095,7 +1078,6 @@ services:
       homepage.widget.type: nextcloud
       homepage.widget.url: https://nextcloud.${DOMAIN}
       homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      traefik.enable: true
       traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
       traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
       traefik.http.routers.nextcloud.middlewares: nextcloud-dav
@@ -1156,7 +1138,6 @@ services:
       - ${DATA_PATH}/ntfy/config:/etc/ntfy
       - ${DATA_PATH}/ntfy/db:/var/lib/ntfy
   omni-tools:
-    # nx:root-allowed - nginx needs to chown cache directories
     cap_add:
       - CHOWN
       - SETGID
@@ -1173,7 +1154,6 @@ services:
     image: iib0011/omni-tools
     restart: unless-stopped
   overseerr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1262,7 +1242,6 @@ services:
       - ${DATA_PATH}/paperless/export:/usr/src/paperless/export
       - ${DATA_PATH}/paperless/consume:/usr/src/paperless/consume
   pgadmin:
-    # nx:root-allowed - requires default capabilities to run python
     container_name: pgadmin
     depends_on:
       postgres:
@@ -1292,7 +1271,6 @@ services:
       - ${DATA_PATH}/pgadmin/servers.json:/pgadmin4/servers.json:ro
       - ${DATA_PATH}/pgadmin/data:/var/lib/pgadmin
   plex:
-    # nx:root-allowed - needs root for hardware transcoding
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1325,7 +1303,6 @@ services:
       homepage.widget.key: ${PLEX_API_KEY:-}
       homepage.widget.type: plex
       homepage.widget.url: http://host.docker.internal:32400
-      traefik.enable: true
       traefik.http.services.plex.loadbalancer.server.url: http://host.docker.internal:32400
     network_mode: host
     restart: unless-stopped
@@ -1422,7 +1399,6 @@ services:
     volumes:
       - ${DATA_PATH}/postgres/data:/var/lib/postgresql/data
   profilarr:
-    # nx:root-allowed - handles user switching internally
     cap_add:
       - CHOWN
       - SETGID
@@ -1443,7 +1419,6 @@ services:
       homepage.href: https://profilarr.${DOMAIN}
       homepage.icon: profilarr
       homepage.name: Profilarr
-      traefik.enable: true
       traefik.http.routers.profilarr.middlewares: basic-auth@file
     ports:
       - 6868:6868
@@ -1516,7 +1491,6 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
   prowlarr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1543,7 +1517,6 @@ services:
       homepage.widget.key: ${PROWLARR_API_KEY:-}
       homepage.widget.type: prowlarr
       homepage.widget.url: http://prowlarr:9696
-      traefik.enable: true
       traefik.http.routers.prowlarr.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -1552,7 +1525,6 @@ services:
       - ${DATA_PATH}/prowlarr:/config
       - ${MEDIA_PATH}/downloads:/downloads
   qbittorrent:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1596,7 +1568,6 @@ services:
       - ${DATA_PATH}/qbittorrent:/config
       - ${MEDIA_PATH}/downloads:/downloads
   radarr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1623,7 +1594,6 @@ services:
       homepage.widget.key: ${RADARR_API_KEY:-}
       homepage.widget.type: radarr
       homepage.widget.url: http://radarr:7878
-      traefik.enable: true
       traefik.http.routers.radarr.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -1654,7 +1624,6 @@ services:
     volumes:
       - ${DATA_PATH}/redis:/data
   sabnzbd:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1681,7 +1650,6 @@ services:
       homepage.widget.key: ${SABNZBD_API_KEY:-}
       homepage.widget.type: sabnzbd
       homepage.widget.url: http://sabnzbd:8080
-      traefik.enable: true
       traefik.http.routers.sabnzbd.middlewares: basic-auth@file
     ports:
       - 8085:8080
@@ -1705,7 +1673,6 @@ services:
       timeout: 10s
     image: searxng/searxng
     labels:
-      traefik.enable: true
       traefik.http.routers.searxng.rule: Host(`search.${DOMAIN}`)
     restart: unless-stopped
     security_opt:
@@ -1729,7 +1696,6 @@ services:
       - no-new-privileges:true
     user: root
   sonarr:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1756,7 +1722,6 @@ services:
       homepage.widget.key: ${SONARR_API_KEY:-}
       homepage.widget.type: sonarr
       homepage.widget.url: http://sonarr:8989
-      traefik.enable: true
       traefik.http.routers.sonarr.middlewares: basic-auth@file
     restart: unless-stopped
     security_opt:
@@ -1852,7 +1817,6 @@ services:
       - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
       - ${DATA_PATH}/tailscale:/var/run/tailscale
   tautulli:
-    # nx:root-allowed - linuxserver.io uses PUID/PGID
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -1954,7 +1918,6 @@ services:
       homepage.name: Traefik (nexus)
       homepage.widget.type: traefik
       homepage.widget.url: http://traefik:8080
-      traefik.enable: true
       traefik.http.routers.traefik.rule: Host(`traefik.nexus.${DOMAIN}`)
       traefik.http.routers.traefik.service: api@internal
       traefik.http.services.traefik.loadbalancer.server.port: 8080
@@ -1996,7 +1959,6 @@ services:
     volumes:
       - ${DATA_PATH}/trala:/config:ro
   unpackerr:
-    # nx:root-allowed - minimal container for file extraction
     cap_drop:
       - ALL
     container_name: unpackerr
