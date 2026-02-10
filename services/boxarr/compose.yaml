@@ -1,0 +1,43 @@
+services:
+  boxarr:
+    image: ghcr.io/iongpt/boxarr
+    container_name: boxarr
+    hostname: boxarr
+    environment:
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Boxarr
+      homepage.icon: boxarr
+      homepage.description: Box Office Tracking for Radarr
+      homepage.href: https://boxarr.${DOMAIN}
+      traefik.http.services.boxarr.loadbalancer.server.port: 8888
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/boxarr:/config
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

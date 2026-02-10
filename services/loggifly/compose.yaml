@@ -1,0 +1,38 @@
+services:
+  loggifly:
+    image: ghcr.io/clemcer/loggifly
+    container_name: loggifly
+    hostname: loggifly
+    user: "1000:1000"
+    environment:
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    labels:
+      homepage.group: Observability
+      homepage.name: Loggifly
+      homepage.icon: docker
+      homepage.description: Docker Log Notifier
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    volumes:
+      - ${DATA_PATH}/loggifly:/config
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

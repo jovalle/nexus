@@ -1,172 +1,70 @@
-<div align="center">
-
-<img src=".github/assets/logo.png" height="400px"/>
-
 # Nexus
 
-![Node Uptime](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_uptime&style=flat&label=uptime) ![CPU Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_cpu_usage&style=flat&label=cpu) ![Memory Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_memory_usage&style=flat&label=memory) ![Docker Containers](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_containers_running&style=flat&label=running)
+Docker Compose service stack for a home server. 80+ services managed through a single root compose file with per-service directories, environment files, and a `just`-based CLI.
 
-</div>
+## Quick Start
 
-## ✨ Overview
+```bash
+# Clone and enter
+git clone https://github.com/jovalle/nexus.git && cd nexus
 
-Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing catalog with a focus on modularity, observability, and ease of management.
+# Run setup (installs just, docker, creates network, etc.)
+./setup.sh            # interactive
+./setup.sh --auto     # opinionated defaults
 
-## ⚠️ Disclaimer
+# Copy and fill in your environment
+cp .env.example .env
 
-**IMPORTANT**: Running custom commands and containers on TrueNAS SCALE is against the intent of iX-Systems and its developers. TrueNAS SCALE is designed to be managed through its web interface and official applications ecosystem.
+# Start everything
+just up
 
-**By using this project, you acknowledge that:**
-
-- ⚠️ You are proceeding at your own risk
-- 🚫 I hold no responsibility for any damage, data loss, or system instability incurred by the usage of this project
-- 🛡️ This may void support from iX-Systems
-- ⚙️ System updates may break custom configurations
-- 🧪 You should proceed with caution and maintain proper backups
-
-**Use this project only if you understand the risks and accept full responsibility for your system.**
-
-## 🚀 Highlights
-
-- 🚀 Push to `nx start` (😅) simplicity for deploying dozens of containers on a single host
-- 🧰 Dockge & Portainer included for additional point-and-click controls
-- 📊 First-class observability via Prometheus, Grafana, Loki, Dozzle, Beszel, & more!
-- 🗂️ Monorepo structure keeps Compose services, env vars, and docs in one place with many improvements to come
-
-## 📋 Best Practices
-
-- 🔐 Keep sensitive values in the stack-specific `.env` files and never commit secrets to the repo.
-- 🧩 Modify only the `.env` of the stack you intend to change to keep configurations isolated.
-- ⚙️ Use `nx <command>` for everyday lifecycle tasks (start, stop, logs, backups, etc.).
-- 📈 Monitor stack health via Beszel, Dockpeek, Dockge or Portainer.
-- ♻️ By default, Watchtower will keep all deployed services up-to-date.
-- 🧱 When adding new services, follow the existing folder pattern to keep stacks modular and easy to reason about.
-
-## 🛠️ Getting Started
-
-> 📖 **Detailed Setup Guide**: See [SETUP.md](SETUP.md) for comprehensive setup instructions and troubleshooting.
-
-### Quick Setup
-
-For first-time setup with automated environment configuration:
-
-1. Clone the repository:
-
-   ```sh
-   git clone https://github.com/jovalle/nexus
-   cd nexus
-   ```
-
-2. Run the automated setup (installs Homebrew and required tools):
-
-   ```sh
-   sudo ./scripts/setup.sh jay  # Replace 'jay' with your username
-   # Or set via environment variable:
-   # sudo NEXUS_USER=jay ./scripts/setup.sh
-   ```
-
-   This will:
-   - Install Homebrew (Linuxbrew) configured for the specified user
-   - Install required tools like `direnv`, `fzf`, `jq`, and `yq`
-   - Set up `direnv` for automatic environment loading
-   - Configure tab completion for the `nx` command
-
-3. Allow direnv and activate the environment:
-
-   ```sh
-   direnv allow .
-   ```
-
-   The `nx` command will now be in your PATH with intelligent tab completion!
-
-4. Review `.env` files inside each stack and adjust values to match your environment (paths, credentials, network details).
-
-5. Launch everything:
-
-   ```sh
-   nx start
-   ```
-
-   > 🧬 Migrating to/from TrueNAS? Change `DATA_PATH` and Nexus will feel instantly familiar.
-
-6. Open Dockge (exposed via the root stack) to configure and monitor stacks.
-
-> 🛠️ Prefer Portainer? It is included under the `core` stack. Open its web UI, import the Compose files, and manage stacks from there.
-
-### Manual Setup
-
-If you prefer manual installation or already have the required tools:
-
-1. Clone the repository:
-
-   ```sh
-   git clone https://github.com/jovalle/nexus
-   cd nexus
-   ```
-
-2. Install prerequisites:
-
-   ```sh
-   # Install direnv (for automatic environment loading)
-   brew install direnv
-
-   # Install fzf (for enhanced tab completion)
-   brew install fzf
-
-   # Add direnv hook to your shell
-   echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc  # for zsh
-   # or
-   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # for bash
-
-   # Reload your shell
-   source ~/.zshrc  # or source ~/.bashrc
-   ```
-
-3. Allow direnv to load the environment:
-
-   ```sh
-   direnv allow .
-   ```
-
-4. Review `.env` files and adjust as needed.
-
-5. Launch stacks using the `nx` command:
-
-   ```sh
-   nx start
-   ```
-
-### nx CLI Features
-
-The `nx` command provides a powerful interface for managing your Docker stacks:
-
-- **Tab Completion**: Press `Tab` after typing `nx` to see available commands and stacks
-- **fzf Integration**: Press `Ctrl+Space` for interactive fuzzy-search selection of commands
-- **Dynamic Help**: Command descriptions are auto-generated from the script itself
-- **Stack-aware**: Automatically detects stacks in the `stacks/` directory
-
-Example commands:
-
-```sh
-nx help              # Show all available commands
-nx list              # List all available stacks
-nx start             # Start all stacks
-nx start media       # Start only the media stack
-nx stop core         # Stop the core stack
-nx logs app -f       # Follow logs for app stack
-nx status            # Show status of all stacks
-nx update            # Update all containers to latest versions
-nx fmt               # Update README with current service listings
-nx backup            # Create backup of all configurations
-nx validate          # Validate all compose files
+# Start a single service
+just up plex
 ```
 
-### Updating
+## Structure
 
-Update containers to latest versions:
-
-```sh
-nx update
+```
+nexus/
+├── compose.yaml          # Root compose — includes all services
+├── .env                  # Global environment variables (gitignored)
+├── .env.example          # Template with placeholder values
+├── justfile              # Task runner recipes
+├── setup.sh              # Host provisioning script
+├── services/
+│   └── {name}/
+│       ├── compose.yaml  # Service definition
+│       └── .env          # Service-specific overrides (gitignored)
+├── scripts/              # Maintenance scripts
+├── archive/              # Retired service definitions
+└── backups/              # Backup data (gitignored)
 ```
 
-Automated updates are handled by [Watchtower](https://containrrr.dev/watchtower/).
+## Usage
+
+All management goes through `just`:
+
+```bash
+just              # List all recipes
+just up [svc]     # Start service(s)
+just down [svc]   # Stop service(s)
+just restart svc  # Restart a service
+just logs svc     # Tail logs
+just status       # Show running containers
+just retire svc   # Archive a service
+```
+
+Run `just --list` for the full recipe list.
+
+## Configuration
+
+Environment variables flow from two levels:
+
+1. **Root `.env`** — shared values (paths, domain, timezone, credentials)
+2. **`services/<name>/.env`** — service-specific overrides
+
+See [.env.example](.env.example) for all available variables.
+
+## License
+
+MIT

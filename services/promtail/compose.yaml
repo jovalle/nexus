@@ -1,0 +1,43 @@
+services:
+  promtail:
+    image: grafana/promtail
+    container_name: promtail
+    hostname: promtail
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9080' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      homepage.group: Observability
+      homepage.name: Promtail
+      homepage.icon: loki
+      homepage.description: Log Collector
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    cap_add:
+      - DAC_READ_SEARCH
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/promtail:/etc/promtail:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

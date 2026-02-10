@@ -1,0 +1,52 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    hostname: jellyfin
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Streaming
+      homepage.name: Jellyfin
+      homepage.icon: jellyfin
+      homepage.description: Free Software Media Server
+      homepage.href: https://jellyfin.${DOMAIN}
+      homepage.widget.type: jellyfin
+      homepage.widget.url: http://host.docker.internal:8096
+      homepage.widget.key: ${JELLYFIN_API_KEY:-}
+      homepage.widget.enableNowPlaying: true
+      homepage.widget.streamOneStreamToTwoRows: true
+      traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
+    network_mode: host
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    devices:
+      - /dev/dri
+    volumes:
+      - ${DATA_PATH}/jellyfin:/config
+      - ${MEDIA_PATH}:/media:ro

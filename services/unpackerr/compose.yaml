@@ -1,0 +1,45 @@
+services:
+  unpackerr:
+    image: ghcr.io/unpackerr/unpackerr
+    container_name: unpackerr
+    hostname: unpackerr
+    user: "1000:1000"
+    environment:
+      TZ: ${TZ:-America/New_York}
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+      UN_LIDARR_0_URL: http://lidarr:8686
+      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY:-}
+    healthcheck:
+      test: ["NONE"]
+    labels:
+      homepage.group: Downloaders
+      homepage.name: Unpackerr
+      homepage.icon: unpackerr
+      homepage.description: Archive Extractor for *arr Apps
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${MEDIA_PATH}/downloads:/downloads
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

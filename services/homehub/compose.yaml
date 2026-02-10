@@ -1,0 +1,47 @@
+services:
+  homehub:
+    image: ghcr.io/surajverma/homehub
+    container_name: homehub
+    hostname: homehub
+    environment:
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Dashboard
+      homepage.name: Homehub
+      homepage.icon: homehub
+      homepage.description: Home Dashboard
+      homepage.href: https://homehub.${DOMAIN}
+      traefik.http.services.homehub.loadbalancer.server.port: 5000
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/homehub/config.yml:/app/config.yml
+      - ${DATA_PATH}/homehub/uploads:/app/uploads
+      - ${DATA_PATH}/homehub/media:/app/media
+      - ${DATA_PATH}/homehub/pdfs:/app/pdfs
+      - ${DATA_PATH}/homehub/data:/app/data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

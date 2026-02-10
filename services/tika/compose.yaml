@@ -1,0 +1,38 @@
+services:
+  tika:
+    image: apache/tika
+    container_name: tika
+    hostname: tika
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9998' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Utilities
+      homepage.name: Tika
+      homepage.icon: apache
+      homepage.description: Content Analysis Toolkit
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

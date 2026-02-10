@@ -1,0 +1,36 @@
+services:
+  beszel:
+    image: henrygd/beszel
+    container_name: beszel
+    hostname: beszel
+    user: "1000:1000"
+    healthcheck:
+      test: ["NONE"]
+    labels:
+      homepage.group: Observability
+      homepage.name: Beszel
+      homepage.icon: beszel
+      homepage.description: Server Monitoring Dashboard
+      homepage.href: https://beszel.${DOMAIN}
+      traefik.http.services.beszel.loadbalancer.server.port: 8090
+    ports:
+      - 8090:8090
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/beszel:/beszel_data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

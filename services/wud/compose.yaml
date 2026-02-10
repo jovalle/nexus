@@ -1,0 +1,46 @@
+services:
+  wud:
+    image: getwud/wud
+    container_name: wud
+    hostname: wud
+    environment:
+      TZ: ${TZ:-America/New_York}
+      WUD_TRIGGER_MQTT_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Utilities
+      homepage.name: WUD
+      homepage.icon: whats-up-docker
+      homepage.description: Container Update Detector
+      homepage.href: https://wud.${DOMAIN}
+      traefik.http.services.wud.loadbalancer.server.port: 3000
+    ports:
+      - 3004:3000
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

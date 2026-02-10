@@ -1,0 +1,47 @@
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    container_name: cadvisor
+    hostname: cadvisor
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Observability
+      homepage.name: cAdvisor
+      homepage.icon: cadvisor
+      homepage.description: Container Metrics Exporter
+      traefik.enable: "false"
+    privileged: true
+    command:
+      - --housekeeping_interval=30s
+      - --docker_only=true
+      - --disable_metrics=referenced_memory,tcp,udp,advtcp
+      - --store_container_labels=false
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

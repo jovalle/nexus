@@ -1,0 +1,62 @@
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    hostname: nextcloud
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-}
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${DOMAIN}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/status.php || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    labels:
+      homepage.group: Documents
+      homepage.name: Nextcloud
+      homepage.icon: nextcloud
+      homepage.description: Personal Cloud Storage
+      homepage.href: https://nextcloud.${DOMAIN}
+      homepage.widget.type: nextcloud
+      homepage.widget.url: http://nextcloud
+      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:-admin}
+      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:-}
+      traefik.http.services.nextcloud.loadbalancer.server.port: 80
+    ports:
+      - 444:80
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    volumes:
+      - ${DATA_PATH}/nextcloud:/var/www/html
+      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

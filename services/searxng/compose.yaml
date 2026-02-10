@@ -1,0 +1,49 @@
+services:
+  searxng:
+    image: searxng/searxng
+    container_name: searxng
+    hostname: searxng
+    environment:
+      SEARXNG_BASE_URL: https://search.${DOMAIN}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Utilities
+      homepage.name: SearXNG
+      homepage.icon: searxng
+      homepage.description: Privacy Search Engine
+      homepage.href: https://search.${DOMAIN}
+      homepage.widget.type: searxng
+      homepage.widget.url: http://searxng:8080
+      traefik.http.services.searxng.loadbalancer.server.port: 8080
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    volumes:
+      - ${DATA_PATH}/searxng:/etc/searxng
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

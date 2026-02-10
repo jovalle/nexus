@@ -1,0 +1,53 @@
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd
+    container_name: sabnzbd
+    hostname: sabnzbd
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api?mode=version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Downloaders
+      homepage.name: SABnzbd
+      homepage.icon: sabnzbd
+      homepage.description: Usenet Downloader
+      homepage.href: https://sabnzbd.${DOMAIN}
+      homepage.widget.type: sabnzbd
+      homepage.widget.url: http://sabnzbd:8080
+      homepage.widget.key: ${SABNZBD_API_KEY:-}
+      traefik.http.routers.sabnzbd.middlewares: basic-auth@file
+      traefik.http.services.sabnzbd.loadbalancer.server.port: 8080
+    ports:
+      - 8081:8080
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/sabnzbd:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

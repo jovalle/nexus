@@ -1,0 +1,38 @@
+services:
+  agregarr:
+    image: agregarr/agregarr
+    container_name: agregarr
+    hostname: agregarr
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7171 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Agregarr
+      homepage.icon: agregarr
+      homepage.description: Media Aggregation Tool
+      homepage.href: https://agregarr.${DOMAIN}
+      traefik.http.services.agregarr.loadbalancer.server.port: 7171
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/agregarr:/app/config
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

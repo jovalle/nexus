@@ -1,0 +1,51 @@
+services:
+  bazarr:
+    image: lscr.io/linuxserver/bazarr
+    container_name: bazarr
+    hostname: bazarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 6767 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Bazarr
+      homepage.icon: bazarr
+      homepage.description: Subtitle Manager
+      homepage.href: https://bazarr.${DOMAIN:?no domain defined}
+      homepage.widget.type: bazarr
+      homepage.widget.url: http://bazarr:6767
+      homepage.widget.key: ${BAZARR_API_KEY:-}
+      traefik.http.routers.bazarr.middlewares: basic-auth@file
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/bazarr:/config
+      - ${MEDIA_PATH}/movies:/movies:ro
+      - ${MEDIA_PATH}/series:/series:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

@@ -1,0 +1,43 @@
+services:
+  profilarr:
+    image: santiagosayshey/profilarr
+    container_name: profilarr
+    hostname: profilarr
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6868' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Profilarr
+      homepage.icon: profilarr
+      homepage.description: Quality Profile Manager for *arr Apps
+      homepage.href: https://profilarr.${DOMAIN}
+      traefik.http.routers.profilarr.middlewares: basic-auth@file
+    ports:
+      - 6868:6868
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/profilarr:/config
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

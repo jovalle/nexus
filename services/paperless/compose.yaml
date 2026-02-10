@@ -1,0 +1,68 @@
+services:
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx
+    container_name: paperless
+    hostname: paperless
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      USERMAP_UID: ${PUID:-1000}
+      USERMAP_GID: ${PGID:-1000}
+      PAPERLESS_TIME_ZONE: ${TZ:-America/New_York}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY:-}
+      PAPERLESS_REDIS: redis://redis:6379
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: ${PAPERLESS_DB_USERNAME:-paperless}
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
+      PAPERLESS_URL: https://paperless.${DOMAIN}
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-}
+      PAPERLESS_OCR_LANGUAGE: eng
+      PAPERLESS_TIKA_ENABLED: "1"
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      homepage.group: Documents
+      homepage.name: Paperless-ngx
+      homepage.icon: paperless-ngx
+      homepage.description: Document Management System
+      homepage.href: https://paperless.${DOMAIN}
+      homepage.widget.type: paperless
+      homepage.widget.url: http://paperless:8000
+      homepage.widget.key: ${PAPERLESS_API_KEY:-}
+      traefik.http.services.paperless.loadbalancer.server.port: 8000
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+    volumes:
+      - ${DATA_PATH}/paperless/data:/usr/src/paperless/data
+      - ${DATA_PATH}/paperless/media:/usr/src/paperless/media
+      - ${DATA_PATH}/paperless/export:/usr/src/paperless/export
+      - ${DATA_PATH}/paperless/consume:/usr/src/paperless/consume
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

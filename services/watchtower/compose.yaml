@@ -1,0 +1,47 @@
+services:
+  watchtower:
+    image: ghcr.io/jovalle/watchtower
+    container_name: watchtower
+    hostname: watchtower
+    user: "1001:1001"
+    environment:
+      TZ: ${TZ:-America/New_York}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "86400"
+      WATCHTOWER_NOTIFICATIONS: shoutrrr
+      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+      SESSION_SECRET: ${SESSION_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9001/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Utilities
+      homepage.name: Watchtower
+      homepage.icon: watchtower
+      homepage.description: Container Update Monitor
+      homepage.href: https://watchtower.${DOMAIN}
+      traefik.enable: "false"
+    ports:
+      - 9001:9001
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    volumes:
+      - ${DATA_PATH}/watchtower:/data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

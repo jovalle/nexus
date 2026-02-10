@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Pre-commit hook: verify compose.yaml includes all services
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+SCRIPT="${ROOT_DIR}/scripts/sync-compose.sh"
+
+if [[ ! -x "$SCRIPT" ]]; then
+    echo "⚠ sync-compose.sh not found or not executable, skipping check" >&2
+    exit 0
+fi
+
+exec "$SCRIPT" --check

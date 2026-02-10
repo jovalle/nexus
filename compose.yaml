@@ -1,2069 +1,318 @@
-services:
-  adguard:
-    cap_add:
-      - NET_BIND_SERVICE
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: adguard
-    dns:
-      - 76.76.2.2
-      - 76.76.10.2
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1" ]
-      timeout: 10s
-    hostname: adguard
-    image: adguard/adguardhome
-    labels:
-      homepage.description: Ad-Blocking DNS Server
-      homepage.group: Core
-      homepage.href: https://adguard.nexus.${DOMAIN:?no domain defined}
-      homepage.icon: adguard-home
-      homepage.name: AdGuard Home 2
-      homepage.widget.password: ${ADMIN_PASSWORD:?admin password not defined}
-      homepage.widget.type: adguard
-      homepage.widget.url: http://adguard
-      homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
-      traefik.http.routers.adguard.rule: Host(`adguard.nexus.${DOMAIN}`)
-      traefik.http.services.adguard.loadbalancer.server.port: 80
-    ports:
-      - 53:53/tcp
-      - 53:53/udp
-      - 853:853/tcp
-      - 853:853/udp
-      - 3000:3000/tcp
-      - 5443:5443/tcp
-      - 5443:5443/udp
-      - 6061:6060/tcp
-      - 8880:80/tcp
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
-      - ${DATA_PATH}/adguard/work:/opt/adguardhome/work
-  agregarr:
-    cap_drop:
-      - ALL
-    container_name: agregarr
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:7171 || exit 1" ]
-      timeout: 10s
-    image: agregarr/agregarr
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH:?data path not defined}/agregarr:/app/config
-  apprise:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: apprise
-    environment:
-      PGID: 1000
-      PUID: 1000
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -sf http://localhost:8000 || exit 1" ]
-      timeout: 10s
-    image: caronc/apprise
-    labels:
-      traefik.http.routers.apprise.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH:?data path not defined}/apprise:/config
-  audiodeck:
-    cap_drop:
-      - ALL
-    container_name: audiodeck
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4747 || exit 1" ]
-      timeout: 10s
-    image: casantosmu/audiodeck
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: "1000:1000"
-    volumes:
-      - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
-  bazarr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: bazarr
-    environment: &a1
-      PGID: ${PGID:-1000}
-      PUID: ${PUID:-1000}
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "nc -z localhost 6767 || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/bazarr
-    labels:
-      homepage.description: Subtitle Curator
-      homepage.group: Media
-      homepage.href: https://bazarr.${DOMAIN:?no domain defined}
-      homepage.icon: bazarr
-      homepage.name: Bazarr
-      homepage.widget.key: ${BAZARR_API_KEY:-}
-      homepage.widget.type: bazarr
-      homepage.widget.url: http://bazarr:6767
-      traefik.http.routers.bazarr.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/bazarr:/config
-      - ${MEDIA_PATH}/movies:/movies:ro
-      - ${MEDIA_PATH}/series:/series:ro
-  beszel:
-    cap_drop:
-      - ALL
-    container_name: beszel
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD", "/beszel", "health" ]
-      timeout: 10s
-    image: henrygd/beszel
-    labels:
-      homepage.description: Lightweight server monitoring platform
-      homepage.group: Log
-      homepage.href: https://beszel.${DOMAIN:?no domain defined}
-      homepage.icon: beszel
-      homepage.name: Beszel
-      homepage.widget.fields: '["systems", "up"]'
-      homepage.widget.password: ${BESZEL_ADMIN_PASSWORD:?beszel admin password not defined}
-      homepage.widget.type: beszel
-      homepage.widget.url: http://beszel:8090
-      homepage.widget.username: ${BESZEL_ADMIN_USER:?beszel admin user not defined}
-      homepage.widget.version: 2
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/beszel/data:/beszel_data
-  beszel-agent:
-    cap_add:
-      - CAP_PERFMON
-    cap_drop:
-      - ALL
-    container_name: beszel-agent
-    depends_on:
-      beszel:
-        condition: service_started
-    devices:
-      - /dev/dri/card0:/dev/dri/card0
-    environment:
-      KEY: ${BESZEL_AGENT_KEY:?beszel agent key not defined}
-      LISTEN: 45876
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "nc -z localhost 45876 || exit 1" ]
-      timeout: 10s
-    image: henrygd/beszel-agent-intel
-    labels:
-      traefik.enable: false
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  cadvisor:
-    container_name: cadvisor
-    devices:
-      - /dev/kmsg
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1" ]
-      timeout: 10s
-    image: gcr.io/cadvisor/cadvisor
-    labels:
-      traefik.enable: false
-    privileged: true
-    restart: unless-stopped
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-  cloudflared:
-    cap_drop:
-      - ALL
-    command: tunnel --no-autoupdate run
-    container_name: cloudflared
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN:?no cloudflared token provided}
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 60s
-      test: [ "CMD", "cloudflared", "version" ]
-      timeout: 10s
-    hostname: nexus
-    image: cloudflare/cloudflared
-    labels:
-      traefik.enable: false
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: "65532:65532"
-  docker-socket-proxy:
-    container_name: docker-socket-proxy
-    environment:
-      CONTAINERS: 1
-      EXEC: 1
-      IMAGES: 1
-      INFO: 1
-      NETWORKS: 1
-      POST: 1
-      SERVICES: 1
-      TASKS: 1
-      VERSION: 1
-      VOLUMES: 1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 10s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:2375/_ping || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/tecnativa/docker-socket-proxy
-    labels:
-      traefik.enable: false
-    ports:
-      - 0.0.0.0:2375:2375
-    privileged: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  dockge:
-    cap_drop:
-      - ALL
-    container_name: dockge
-    environment:
-      DOCKGE_ENABLE_CONSOLE: true
-      DOCKGE_STACKS_DIR: /opt/stacks
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:5001 || exit 1" ]
-      timeout: 10s
-    image: louislam/dockge:1
-    labels:
-      homepage.description: Docker GUI
-      homepage.group: Core
-      homepage.href: https://dockge.${DOMAIN:?no domain defined}
-      homepage.icon: dockge
-      homepage.name: Dockge
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${DATA_PATH:?data path not defined}/dockge:/app/data
-      - ${STACKS_PATH:?stacks path not defined}:/opt/stacks
-  dockpeek:
-    cap_drop:
-      - ALL
-    container_name: dockpeek
-    environment:
-      PASSWORD: ${DOCKPEEK_PASSWORD:?dockpeek password not defined}
-      SECRET_KEY: ${DOCKPEEK_SECRET_KEY:?dockpeek secret key not defined}
-      TRAEFIK_LABELS: true
-      USERNAME: ${DOCKPEEK_USERNAME:?dockpeek username not defined}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -sf http://localhost:8000 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/dockpeek/dockpeek
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  dozzle:
-    cap_drop:
-      - ALL
-    container_name: dozzle
-    environment:
-      DOZZLE_ENABLE_ACTIONS: true
-      DOZZLE_ENABLE_SHELL: true
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "/dozzle", "healthcheck" ]
-      timeout: 10s
-    image: amir20/dozzle
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  duplicati:
-    container_name: duplicati
-    environment:
-      DUPLICATI__WEBSERVICE_PASSWORD: ${DUPLICATI_WEB_PASSWORD:?duplicati web password required}
-      PGID: 0
-      PUID: 0
-      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY:?duplicati encryption key required}
-      TZ: ${TZ:-UTC}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8200 || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/duplicati
-    labels:
-      traefik.http.routers.duplicati.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/duplicati:/config
-      - ${DATA_PATH}:/source:ro
-      - ${BACKUP_PATH:?backup path required}:/backups
-  excalidash-backend:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: excalidash-backend
-    environment:
-      - DATABASE_URL=file:/app/prisma/dev.db
-      - NODE_ENV=production
-      - PORT=8000
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" ]
-      timeout: 10s
-    image: zimengxiong/excalidash-backend
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    volumes:
-      - ${DATA_PATH}/excalidash/backend:/app/prisma
-  excalidash-frontend:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: excalidash-frontend
-    depends_on:
-      - excalidash-backend
-    environment:
-      BACKEND_URL: excalidash-backend:8000
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80" ]
-      timeout: 10s
-    image: zimengxiong/excalidash-frontend
-    restart: unless-stopped
-  excalidraw:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: excalidraw
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "nc -z localhost 80 || exit 1" ]
-      timeout: 10s
-    image: excalidraw/excalidraw
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH:?data path not defined}/excalidraw:/data
-  flaresolverr:
-    cap_add:
-      - SYS_ADMIN
-    cap_drop:
-      - ALL
-    container_name: flaresolverr
-    environment:
-      <<: *a1
-      CAPTCHA_SOLVER: none
-      LOG_HTML: false
-      LOG_LEVEL: info
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8191/health || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/flaresolverr/flaresolverr
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  garage:
-    cap_drop:
-      - ALL
-    container_name: garage
-    environment:
-      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?garage rpc secret required}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "/garage", "status" ]
-      timeout: 10s
-    image: dxflrs/garage:v2.1.0
-    labels:
-      traefik.http.services.garage.loadbalancer.server.port: 3900
-    network_mode: host
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/garage/config/garage.toml:/etc/garage.toml:ro
-      - ${DATA_PATH}/garage/meta:/var/lib/garage/meta
-      - ${DATA_PATH}/garage/data:/var/lib/garage/data
-  glances:
-    cap_add:
-      - SYS_PTRACE
-    cap_drop:
-      - ALL
-    container_name: glances
-    environment:
-      GLANCES_OPT: -w -1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:61208/api/4/now || exit 1" ]
-      timeout: 10s
-    image: nicolargo/glances
-    labels:
-      homepage.description: System Monitoring Tool
-      homepage.group: Log
-      homepage.href: https://glances.${DOMAIN}
-      homepage.icon: glances
-      homepage.name: Glances
-      homepage.widget.metric: info
-      homepage.widget.type: glances
-      homepage.widget.url: http://glances:61208
-      homepage.widget.version: 4
-      traefik.http.services.glances.loadbalancer.server.port: 61208
-    pid: host
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /etc/os-release:/etc/os-release:ro
-  gluetun:
-    cap_add:
-      - NET_ADMIN
-    cap_drop:
-      - ALL
-    container_name: gluetun
-    devices:
-      - /dev/net/tun
-    environment:
-      <<: *a1
-      GLUETUN_API_KEY: ${GLUETUN_API_KEY:?gluetun api key not defined}
-      HTTPPROXY_STEALTH: false
-      HTTP_CONTROL_SERVER_LOG: false
-      PUBLICIP_FILE: /gluetun/ip
-      VPN_SERVICE_PROVIDER: custom
-      VPN_TYPE: wireguard
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:?address not defined}
-      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:?endpoint ip not defined}
-      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:-51820}
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:?private key not defined}
-      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:?public key not defined}
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 180s
-      test: [ "CMD", "sh", "-c", "wget -q -O /dev/null --header=\"X-API-Key: $${GLUETUN_API_KEY}\" http://127.0.0.1:8000/v1/publicip/ip" ]
-      timeout: 10s
-    image: qmcgaw/gluetun
-    labels:
-      homepage.description: VPN client for containers
-      homepage.group: Media
-      homepage.icon: gluetun
-      homepage.name: Gluetun
-      homepage.widget.fields: '["public_ip", "region", "country"]'
-      homepage.widget.key: ${GLUETUN_API_KEY:-}
-      homepage.widget.type: gluetun
-      homepage.widget.url: http://gluetun:8000
-      traefik.enable: false
-    ports:
-      - 6881:6881
-      - 6881:6881/udp
-      - 10095:10095
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /dev/net/tun:/dev/net/tun
-      - ${DATA_PATH}/gluetun:/gluetun
-  gotenberg:
-    cap_drop:
-      - ALL
-    command:
-      - "gotenberg"
-      - "--chromium-disable-javascript=true"
-      - "--chromium-allow-list=file:///tmp/.*"
-    container_name: gotenberg
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:3000/health || exit 1" ]
-      timeout: 10s
-    image: gotenberg/gotenberg
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  grafana:
-    cap_drop:
-      - ALL
-    container_name: grafana
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
-      GF_SERVER_ROOT_URL: http://localhost:3000
-      GF_USERS_ALLOW_SIGN_UP: false
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1" ]
-      timeout: 10s
-    image: grafana/grafana
-    labels:
-      homepage.description: Metrics Visualizer
-      homepage.group: Log
-      homepage.href: https://grafana.${DOMAIN}
-      homepage.icon: grafana
-      homepage.name: Grafana
-      homepage.widget.fields: '["dashboards","datasources","totalalerts","alertstriggered"]'
-      homepage.widget.password: ${GRAFANA_ADMIN_PASSWORD:?grafana admin password not defined}
-      homepage.widget.type: grafana
-      homepage.widget.url: http://grafana:3000
-      homepage.widget.username: ${GRAFANA_ADMIN_USER:?grafana admin user not defined}
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      - ${DATA_PATH}/grafana/dashboards:/var/lib/grafana/dashboards
-      - ${DATA_PATH}/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
-  harborguard:
-    cap_drop:
-      - ALL
-    container_name: harborguard
-    environment:
-      ENABLED_SCANNERS: trivy,grype,syft,dockle,osv,dive
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -sf http://localhost:3000 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/harborguard/harborguard
-    labels:
-      traefik.http.services.harborguard.loadbalancer.server.port: 3000
-    privileged: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  homepage:
-    cap_drop:
-      - ALL
-    container_name: homepage
-    environment:
-      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN},dash.${DOMAIN}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1:3000 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/gethomepage/homepage
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/homepage:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  imdbarr:
-    cap_drop:
-      - ALL
-    container_name: imdbarr
-    environment:
-      BASE_URL: ${IMDBARR_BASE_URL:-https://imdbarr.${DOMAIN}}
-      PORT: 3000
-      TMDB_API_KEY: ${TMDB_API_KEY:?tmdb api key not defined}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/skulltrail/imdbarr
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  immich:
-    cap_drop:
-      - ALL
-    container_name: immich
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
-      DB_HOSTNAME: postgres
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
-      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
-      IMMICH_VERSION: ${IMMICH_VERSION:-release}
-      NODE_ENV: production
-      REDIS_DBINDEX: 0
-      REDIS_HOSTNAME: redis
-      REDIS_PORT: 6379
-      UPLOAD_LOCATION: /usr/src/app/upload
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -sf http://localhost:2283/api/server/ping || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    labels:
-      homepage.description: Photo management and backup
-      homepage.group: Data
-      homepage.href: https://photos.${DOMAIN}
-      homepage.icon: immich
-      homepage.name: Immich
-      homepage.widget.key: ${IMMICH_API_KEY:-}
-      homepage.widget.type: immich
-      homepage.widget.url: http://immich:2283
-      homepage.widget.version: 2
-    ports:
-      - 2283:2283
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/immich/upload:/usr/src/app/upload
-      - /etc/localtime:/etc/localtime:ro
-  immich-machine-learning:
-    cap_drop:
-      - ALL
-    container_name: immich-machine-learning
-    environment:
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?immich db name required}
-      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:-?immich db hostname required}
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?immich db password required}
-      DB_USERNAME: ${IMMICH_DB_USER:?immich db user required}
-      IMMICH_VERSION: ${IMMICH_VERSION:-release}
-      NODE_ENV: production
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 120s
-      test: [ "CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:3003/ping\")' || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/immich/cache:/cache
-  intel-gpu-exporter:
-    command:
-      - -interval=5s
-      - -addr
-      - ":9091"
-    container_name: intel-gpu-exporter
-    devices:
-      - /dev/dri:/dev/dri
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9091/metrics || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/clambin/intel-gpu-exporter
-    labels:
-      traefik.enable: false
-    pid: host
-    privileged: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  jellyfin:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: jellyfin
-    devices:
-      - /dev/dri
-    environment:
-      <<: *a1
-      JELLYFIN_PublishedServerUrl: https://jellyfin.${DOMAIN}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8096/health || exit 1" ]
-      timeout: 10s
-    image: jellyfin/jellyfin
-    labels:
-      homepage.description: Media Server
-      homepage.group: Media
-      homepage.href: https://jellyfin.${DOMAIN}
-      homepage.icon: jellyfin
-      homepage.name: Jellyfin
-      homepage.widget.enableNowPlaying: true
-      homepage.widget.key: ${JELLYFIN_API_KEY:-}
-      homepage.widget.streamOneStreamToTwoRows: true
-      homepage.widget.type: jellyfin
-      homepage.widget.url: http://host.docker.internal:8096
-      traefik.http.services.jellyfin.loadbalancer.server.url: http://host.docker.internal:8096
-    network_mode: host
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/jellyfin:/config
-      - ${MEDIA_PATH}:/media:ro
-  kromgo:
-    cap_drop:
-      - ALL
-    container_name: kromgo
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    environment:
-      PROMETHEUS_URL: "http://prometheus:9090"
-    healthcheck:
-      disable: true
-    image: ghcr.io/kashalls/kromgo
-    labels:
-      traefik.http.services.kromgo.loadbalancer.server.port: 8080
-    ports:
-      - 8082:8080
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml:ro
-  lidarr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: lidarr
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8686/ping || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/lidarr
-    labels:
-      homepage.description: Personal Music Curator
-      homepage.group: Media
-      homepage.href: https://lidarr.${DOMAIN}
-      homepage.icon: lidarr
-      homepage.name: Lidarr
-      homepage.widget.key: ${LIDARR_API_KEY:-}
-      homepage.widget.type: lidarr
-      homepage.widget.url: http://lidarr:8686
-      traefik.http.routers.lidarr.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/lidarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-      - ${MEDIA_PATH}/music:/music
-  loggifly:
-    cap_drop:
-      - ALL
-    container_name: loggifly
-    environment:
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    healthcheck:
-      disable: true
-    image: ghcr.io/clemcer/loggifly
-    labels:
-      traefik.enable: false
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: 1000:1000
-    volumes:
-      - ${DATA_PATH}/loggifly:/config
-  loki:
-    cap_drop:
-      - ALL
-    container_name: loki
-    healthcheck:
-      disable: true
-    image: grafana/loki
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/loki:/loki
-  mariadb:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
-    container_name: mariadb
-    environment:
-      MARIADB_RANDOM_ROOT_PASSWORD: yes
-      MYSQL_DATABASE: ${MYSQL_DATABASE:?mariadb database not defined}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?mariadb password not defined}
-      MYSQL_USER: ${MYSQL_USER:?mariadb user not defined}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "healthcheck.sh --connect --innodb_initialized" ]
-      timeout: 10s
-    image: mariadb:11.8
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/mariadb:/var/lib/mysql
-  meilisearch:
-    cap_drop:
-      - ALL
-    container_name: meilisearch
-    environment:
-      MEILI_ENV: production
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?meilisearch master key required}
-      MEILI_NO_ANALYTICS: true
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1" ]
-      timeout: 10s
-    image: getmeili/meilisearch:v1.12
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/meilisearch:/meili_data
-  mytabs:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: mytabs
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/47777' || exit 1" ]
-      timeout: 10s
-    image: louislam/its-mytabs:1
-    restart: unless-stopped
-    volumes:
-      - ${DATA_PATH}/mytabs:/app/data
-  n8n:
-    cap_drop:
-      - ALL
-    container_name: n8n
-    environment:
-      GENERIC_TIMEZONE: ${TZ}
-      N8N_HOST: n8n.${DOMAIN}
-      N8N_PORT: 5678
-      N8N_PROTOCOL: https
-      NODE_ENV: production
-      WEBHOOK_URL: https://n8n.${DOMAIN}/
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1" ]
-      timeout: 10s
-    image: n8nio/n8n
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/n8n:/home/node/.n8n
-  navidrome:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: navidrome
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4533/ping || exit 1" ]
-      timeout: 10s
-    image: deluan/navidrome
-    labels:
-      homepage.description: Personal Music Streamer
-      homepage.group: Media
-      homepage.href: https://navidrome.${DOMAIN}
-      homepage.icon: navidrome
-      homepage.name: Navidrome
-      homepage.widget.salt: ${NAVIDROME_API_SALT:-}
-      homepage.widget.token: ${NAVIDROME_API_TOKEN:-}
-      homepage.widget.type: navidrome
-      homepage.widget.url: http://navidrome:4533
-      homepage.widget.user: ${NAVIDROME_API_USER:-}
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/navidrome:/data
-      - ${MEDIA_PATH}/music:/music:ro
-  newt:
-    container_name: newt
-    environment:
-      DOCKER_SOCKET: /var/run/docker.sock
-      LOG_LEVEL: DEBUG
-      NEWT_ID: ${NEWT_ID:?newt id not define}
-      NEWT_SECRET: ${NEWT_SECRET:?newt secret not defined}
-      PANGOLIN_ENDPOINT: https://pangolin.${DOMAIN}
-    healthcheck:
-      disable: true
-    image: fosrl/newt
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  nextcloud:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: nextcloud
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${DOMAIN} cloud.${DOMAIN}"
-      POSTGRES_DATABASE: ${NEXTCLOUD_DB_NAME:-nextcloud database name not defined}
-      POSTGRES_HOST: postgres
-      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?nextcloud database password not defined}
-      POSTGRES_USER: ${NEXTCLOUD_DB_USER:?nextcloud database user not defined}
-      REDIS_HOST: redis
-    healthcheck:
-      interval: 60s
-      retries: 3
-      start_period: 120s
-      test: [ "CMD-SHELL", "curl -f http://localhost/status.php | grep -q '\"installed\":true' || exit 1" ]
-      timeout: 10s
-    image: nextcloud
-    labels:
-      homepage.description: Cloud storage and collaboration
-      homepage.group: Data
-      homepage.href: https://nextcloud.${DOMAIN}
-      homepage.icon: nextcloud
-      homepage.name: Nextcloud
-      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:?nextcloud admin password required}
-      homepage.widget.type: nextcloud
-      homepage.widget.url: https://nextcloud.${DOMAIN}
-      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?nextcloud admin user required}
-      traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
-      traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
-      traefik.http.routers.nextcloud.middlewares: nextcloud-dav
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/nextcloud:/var/www/html
-      - ${NEXTCLOUD_DATA_PATH:?nextcloud data path not defined}:/var/www/html/data
-  node-exporter:
-    cap_drop:
-      - ALL
-    command:
-      - --collector.cpu.info
-      - --path.procfs=/host/proc
-      - --path.rootfs=/host
-      - --path.sysfs=/host/sys
-    container_name: node-exporter
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 10s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9100/metrics || exit 1" ]
-      timeout: 10s
-    image: quay.io/prometheus/node-exporter
-    labels:
-      traefik.enable: false
-    network_mode: host
-    pid: host
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /:/host:ro,rslave
-  ntfy:
-    cap_drop:
-      - ALL
-    command:
-      - serve
-    container_name: ntfy
-    healthcheck:
-      interval: 60s
-      retries: 3
-      start_period: 40s
-      test: [ "CMD-SHELL", "wget -q --tries=1 http://localhost:80/v1/health -O - | grep -Eo '\"healthy\"\\s*:\\s*true' || exit 1" ]
-      timeout: 10s
-    image: binwiederhier/ntfy
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: nobody:nogroup
-    volumes:
-      - target: /var/cache/ntfy
-        tmpfs:
-          size: 100m
-        type: tmpfs
-      - ${DATA_PATH}/ntfy/config:/etc/ntfy
-      - ${DATA_PATH}/ntfy/db:/var/lib/ntfy
-  omni-tools:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: omni-tools
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
-      timeout: 10s
-    image: iib0011/omni-tools
-    restart: unless-stopped
-  overseerr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: overseerr
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:5055/api/v1/status || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/overseerr
-    labels:
-      homepage.description: Media Server Request Management
-      homepage.group: Media
-      homepage.href: https://overseerr.${DOMAIN}
-      homepage.icon: overseerr
-      homepage.name: overseerr
-      homepage.widget.key: ${OVERSEERR_API_KEY:-}
-      homepage.widget.type: overseerr
-      homepage.widget.url: http://overseerr:5055
-    ports:
-      - 5055:5055
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/overseerr:/config
-  paperless:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: paperless
-    depends_on:
-      gotenberg:
-        condition: service_healthy
-      tika:
-        condition: service_healthy
-    environment:
-      PAPERLESS_ADMIN_MAIL: "${PAPERLESS_ADMIN_MAIL:?paperless admin mail not defined}"
-      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
-      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:?paperless admin user not defined}
-      PAPERLESS_DBENGINE: postgres
-      PAPERLESS_DBHOST: postgres
-      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:?paperless db password not defined}
-      PAPERLESS_DBPORT: 5432
-      PAPERLESS_DBUSER: ${PAPERLESS_DB_USERNAME:?paperless db username not defined}
-      PAPERLESS_REDIS: redis://valkey:6379
-      PAPERLESS_TIKA_ENABLED: 1
-      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
-      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
-      PAPERLESS_URL: https://paperless.${DOMAIN}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/paperless-ngx/paperless-ngx
-    labels:
-      homepage.description: Paperless Document Management
-      homepage.group: Data
-      homepage.href: https://paperless.${DOMAIN}
-      homepage.icon: paperless
-      homepage.name: Paperless
-      homepage.widget.fields: '["total", "inbox"]'
-      homepage.widget.password: ${PAPERLESS_ADMIN_PASSWORD:?paperless admin password not defined}
-      homepage.widget.type: paperlessngx
-      homepage.widget.url: http://paperless:8000
-      homepage.widget.username: ${PAPERLESS_ADMIN_USER:?paperless admin username not defined}
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/paperless/data:/usr/src/paperless/data
-      - ${DATA_PATH}/paperless/media:/usr/src/paperless/media
-      - ${DATA_PATH}/paperless/export:/usr/src/paperless/export
-      - ${DATA_PATH}/paperless/consume:/usr/src/paperless/consume
-  pgadmin:
-    container_name: pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "True"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?pgadmin email not defined}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?pgadmin password not defined}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/misc/ping || exit 1" ]
-      timeout: 10s
-    image: dpage/pgadmin4
-    labels:
-      homepage.description: PostgreSQL Management Tool
-      homepage.group: Data
-      homepage.href: https://pgadmin.${DOMAIN}
-      homepage.icon: postgres
-      homepage.name: Postgres
-    restart: unless-stopped
-    volumes:
-      - ${DATA_PATH}/pgadmin/pgpass:/tmp/pgpass:ro
-      - ${DATA_PATH}/pgadmin/servers.json:/pgadmin4/servers.json:ro
-      - ${DATA_PATH}/pgadmin/data:/var/lib/pgadmin
-  plex:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: plex
-    devices:
-      - /dev/dri
-    environment:
-      <<: *a1
-      ADVERTISE_IP: 192.168.1.3:32400
-      UMASK_SET: 18
-      VERSION: plexpass
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:32400/identity || exit 1" ]
-      timeout: 10s
-    image: plexinc/pms-docker
-    labels:
-      homepage.description: Media Server
-      homepage.group: Media
-      homepage.href: https://plex.${DOMAIN}
-      homepage.icon: plex
-      homepage.name: Plex
-      homepage.widget.fields: '["streams", "movies", "tv", "albums"]'
-      homepage.widget.key: ${PLEX_API_KEY:-}
-      homepage.widget.type: plex
-      homepage.widget.url: http://host.docker.internal:32400
-      traefik.http.services.plex.loadbalancer.server.url: http://host.docker.internal:32400
-    network_mode: host
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/plex:/config
-      - ${MEDIA_PATH}:/media:ro
-      - /dev/shm/transcode:/transcode
-  plex-exporter:
-    cap_drop:
-      - ALL
-    container_name: plex-exporter
-    environment:
-      PLEX_SERVER: "${PLEX_SERVER:?no plex server defined}"
-      PLEX_TOKEN: "${PLEX_TOKEN:?no plex token defined}"
-    healthcheck:
-      disable: true
-    image: ghcr.io/timothystewart6/prometheus-plex-exporter
-    labels:
-      traefik.enable: false
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  portainer:
-    cap_drop:
-      - ALL
-    command: -H unix:///var/run/docker.sock --admin-password "${PORTAINER_ADMIN_PASSWORD_HASH:?password hash not defined}"
-    container_name: portainer
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "/portainer", "--help" ]
-      timeout: 10s
-    image: portainer/portainer-ce
-    labels:
-      homepage.description: Container Management
-      homepage.group: Core
-      homepage.href: https://portainer.${DOMAIN}
-      homepage.icon: portainer
-      homepage.name: Portainer
-      homepage.widget.env: 1
-      homepage.widget.fields: '["running", "stopped", "total"]'
-      homepage.widget.key: ${PORTAINER_API_KEY:-}
-      homepage.widget.type: portainer
-      homepage.widget.url: http://portainer:9000
-      traefik.http.services.portainer.loadbalancer.server.port: 9000
-    ports:
-      - 9000:9000/tcp
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/portainer:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  postgres:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: postgres
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 2G
-        reservations:
-          cpus: "0.5"
-          memory: 512M
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
-      POSTGRES_PASSWORD: "${POSTGRES_ROOT_PASSWORD:?postgres password not defined}"
-      POSTGRES_USER: postgres
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 30s
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      timeout: 10s
-    image: pgvector/pgvector:pg16
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/postgres/data:/var/lib/postgresql/data
-  profilarr:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: profilarr
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6868' || exit 1" ]
-      timeout: 10s
-    image: santiagosayshey/profilarr
-    labels:
-      homepage.description: Profile Management for *arrs
-      homepage.group: Media
-      homepage.href: https://profilarr.${DOMAIN}
-      homepage.icon: profilarr
-      homepage.name: Profilarr
-      traefik.http.routers.profilarr.middlewares: basic-auth@file
-    ports:
-      - 6868:6868
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/profilarr:/config
-  prometheus:
-    cap_drop:
-      - ALL
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=3650d
-      - --web.console.libraries=/etc/prometheus/console_libraries
-      - --web.console.templates=/etc/prometheus/consoles
-      - --web.enable-admin-api
-      - --web.enable-lifecycle
-    container_name: prometheus
-    environment:
-      PROMETHEUS_RETENTION_TIME: 3650d
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1" ]
-      timeout: 10s
-    image: prom/prometheus
-    labels:
-      homepage.description: Metrics collection
-      homepage.group: Log
-      homepage.href: https://prometheus.${DOMAIN}
-      homepage.icon: prometheus
-      homepage.name: Prometheus
-      homepage.widget.type: prometheus
-      homepage.widget.url: http://prometheus:9090
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ${DATA_PATH}/prometheus/data:/prometheus
-  promtail:
-    cap_add:
-      - DAC_READ_SEARCH
-    cap_drop:
-      - ALL
-    command: -config.file=/etc/promtail/config.yml
-    container_name: promtail
-    environment:
-      PROMTAIL_CONFIG_FILE: /etc/promtail/config.yml
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/9080' || exit 1" ]
-      timeout: 10s
-    image: grafana/promtail
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/promtail/data:/var/lib/promtail/positions
-      - ${DATA_PATH}/promtail/promtail-config.yaml:/etc/promtail/config.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/log:/var/log:ro
-  prowlarr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: prowlarr
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/prowlarr
-    labels:
-      homepage.description: Indexer Manager for *arrs
-      homepage.group: Media
-      homepage.href: https://prowlarr.${DOMAIN}
-      homepage.icon: prowlarr
-      homepage.name: Prowlarr
-      homepage.widget.key: ${PROWLARR_API_KEY:-}
-      homepage.widget.type: prowlarr
-      homepage.widget.url: http://prowlarr:9696
-      traefik.http.routers.prowlarr.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/prowlarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-  qbittorrent:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - NET_RAW
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: qbittorrent
-    depends_on:
-      gluetun:
-        condition: service_healthy
-        restart: true
-    environment:
-      <<: *a1
-      WEBUI_PORT: 10095
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:10095 || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/qbittorrent
-    labels:
-      homepage.description: BitTorrent client for ISOs
-      homepage.group: Media
-      homepage.href: https://qbittorrent.${DOMAIN}
-      homepage.icon: qbittorrent
-      homepage.name: qBittorrent
-      homepage.widget.fields: '["download", "upload", "seed", "leech"]'
-      homepage.widget.password: ${QBITTORRENT_WEBUI_PASSWORD:?qbit password not defined}
-      homepage.widget.type: qbittorrent
-      homepage.widget.url: http://gluetun:10095
-      homepage.widget.username: ${QBITTORRENT_WEBUI_USERNAME:?qbit username not defined}
-      traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
-    network_mode: service:gluetun
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/qbittorrent:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-  radarr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: radarr
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/radarr
-    labels:
-      homepage.description: Personal Movie Curator
-      homepage.group: Media
-      homepage.href: https://radarr.${DOMAIN}
-      homepage.icon: radarr
-      homepage.name: Radarr
-      homepage.widget.key: ${RADARR_API_KEY:-}
-      homepage.widget.type: radarr
-      homepage.widget.url: http://radarr:7878
-      traefik.http.routers.radarr.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/radarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-      - ${MEDIA_PATH}/movies:/movies
-  redis:
-    cap_add:
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: redis
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 10s
-      test: [ "CMD-SHELL", "redis-cli ping | grep PONG" ]
-      timeout: 10s
-    image: redis
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/redis:/data
-  sabnzbd:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: sabnzbd
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8080/api?mode=version || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/sabnzbd
-    labels:
-      homepage.description: Binary Newsreader
-      homepage.group: Media
-      homepage.href: https://sabnzbd.${DOMAIN}
-      homepage.icon: sabnzbd
-      homepage.name: sabnzbd
-      homepage.widget.key: ${SABNZBD_API_KEY:-}
-      homepage.widget.type: sabnzbd
-      homepage.widget.url: http://sabnzbd:8080
-      traefik.http.routers.sabnzbd.middlewares: basic-auth@file
-    ports:
-      - 8085:8080
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/sabnzbd:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-  searxng:
-    cap_drop:
-      - ALL
-    container_name: searxng
-    environment:
-      SEARXNG_BASE_URL: https://search.${DOMAIN}/
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1" ]
-      timeout: 10s
-    image: searxng/searxng
-    labels:
-      traefik.http.routers.searxng.rule: Host(`search.${DOMAIN}`)
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/searxng:/etc/searxng
-  smartctl-exporter:
-    container_name: smartctl-exporter
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9633/metrics || exit 1" ]
-      timeout: 10s
-    image: quay.io/prometheuscommunity/smartctl-exporter
-    labels:
-      traefik.enable: false
-    privileged: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: root
-  sonarr:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: sonarr
-    environment:
-      <<: *a1
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/sonarr
-    labels:
-      homepage.description: Personal Series Curator
-      homepage.group: Media
-      homepage.href: https://sonarr.${DOMAIN}
-      homepage.icon: sonarr
-      homepage.name: Sonarr
-      homepage.widget.key: ${SONARR_API_KEY:-}
-      homepage.widget.type: sonarr
-      homepage.widget.url: http://sonarr:8989
-      traefik.http.routers.sonarr.middlewares: basic-auth@file
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/sonarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-      - ${MEDIA_PATH}/series:/series
-  stringer:
-    cap_drop:
-      - ALL
-    container_name: stringer
-    environment:
-      CLEANUP_CRON: 0 0 * * *
-      DATABASE_URL: postgres://stringer:${STRINGER_DB_PASSWORD:?stringer db password required}@postgres:5432/stringer
-      ENCRYPTION_DETERMINISTIC_KEY: ${STRINGER_ENCRYPTION_DETERMINISTIC_KEY:?stringer encryption deterministic key required}
-      ENCRYPTION_KEY_DERIVATION_SALT: ${STRINGER_ENCRYPTION_KEY_DERIVATION_SALT:?stringer encryption key derivation salt required}
-      ENCRYPTION_PRIMARY_KEY: ${STRINGER_ENCRYPTION_PRIMARY_KEY:?stringer encryption primary key required}
-      FETCH_FEEDS_CRON: "*/5 * * * *"
-      PORT: 8080
-      SECRET_KEY_BASE: ${STRINGER_SECRET_KEY_BASE:?stringer secret key base required}
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080 | grep -q '^[23]' || exit 1" ]
-      timeout: 10s
-    image: stringerrss/stringer
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  syncthing:
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: syncthing
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8384/rest/noauth/health || exit 1" ]
-      timeout: 10s
-    image: syncthing/syncthing
-    labels:
-      homepage.description: File synchronization
-      homepage.group: Data
-      homepage.href: https://syncthing.${DOMAIN}
-      homepage.icon: syncthing
-      homepage.name: Syncthing
-      traefik.http.services.syncthing.loadbalancer.server.port: 8384
-    ports:
-      - 8384:8384
-      - 22000:22000/tcp
-      - 22000:22000/udp
-      - 21027:21027/udp
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/syncthing:/var/syncthing
-  tailscale:
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    cap_drop:
-      - ALL
-    container_name: tailscale
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
-      TS_EXTRA_ARGS: --accept-routes=false --advertise-exit-node=true
-      TS_ROUTES: 192.168.1.0/24,192.168.10.0/24
-      TS_SOCKET: /var/run/tailscale/tailscaled.sock
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_USERSPACE: "false"
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "tailscale status --json | grep -q 'BackendState.*Running' || exit 1" ]
-      timeout: 10s
-    hostname: nexus
-    image: tailscale/tailscale
-    labels:
-      traefik.enable: false
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
-      - ${DATA_PATH}/tailscale:/var/run/tailscale
-  tautulli:
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: tautulli
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:8181/status || exit 1" ]
-      timeout: 10s
-    image: lscr.io/linuxserver/tautulli
-    labels:
-      homepage.description: Media Server Companion
-      homepage.group: Media
-      homepage.href: https://tautulli.${DOMAIN}
-      homepage.icon: tautulli
-      homepage.name: Tautulli
-      homepage.widget.key: ${TAUTULLI_API_KEY:-}
-      homepage.widget.type: tautulli
-      homepage.widget.url: http://tautulli:8181
-    ports:
-      - 8181:8181
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/tautulli:/config
-  tika:
-    cap_drop:
-      - ALL
-    container_name: tika
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9998" ]
-      timeout: 10s
-    image: apache/tika
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-  traefik:
-    command:
-      - --accesslog.format=json
-      - --accesslog=true
-      - --api.dashboard=true
-      - --api.insecure=true
-      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
-      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
-      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
-      - --certificatesresolvers.letsencrypt.acme.storage=/etc/letsencrypt/acme.json
-      - --entrypoints.golinks.address=:8090
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.permanent=true
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.websecure.forwardedHeaders.trustedIPs=192.168.1.3/32,172.52.0.0/16,10.0.0.0/8,100.64.0.0/10
-      - --entrypoints.websecure.http.tls.certResolver=letsencrypt
-      - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN}
-      - --entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN},*.nexus.${DOMAIN}
-      - --entrypoints.websecure.http.tls=true
-      - --log.level=INFO
-      - --ping.entrypoint=websecure
-      - --ping=true
-      - --providers.docker.defaultRule=Host(`{{ index .Labels "com.docker.compose.service" }}.${DOMAIN}`) || Host(`{{ index .Labels "com.docker.compose.service" }}.nexus.${DOMAIN}`)
-      - --providers.docker.exposedbydefault=true
-      - --providers.docker=true
-      - --providers.file.filename=/etc/traefik/dynamic.yaml
-      - --providers.file.watch=true
-      - --serverstransport.insecureskipverify=true
-    container_name: traefik
-    environment:
-      CLOUDFLARE_DNS_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?no cloudflare api token provided}
-      CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:?no cloudflare email provided}
-      DOMAIN: ${DOMAIN:?no domain provided}
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${CLOUDFLARE_EMAIL:?no cloudflare email provided}
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD", "traefik", "version" ]
-      timeout: 10s
-    hostname: traefik
-    image: traefik
-    labels:
-      homepage.description: Reverse proxy for exposing apps via HTTPS
-      homepage.group: Core
-      homepage.href: https://traefik.nexus.${DOMAIN}
-      homepage.icon: traefik
-      homepage.name: Traefik (nexus)
-      homepage.widget.type: traefik
-      homepage.widget.url: http://traefik:8080
-      traefik.http.routers.traefik.rule: Host(`traefik.nexus.${DOMAIN}`)
-      traefik.http.routers.traefik.service: api@internal
-      traefik.http.services.traefik.loadbalancer.server.port: 8080
-    ports:
-      - 80:80
-      - 443:443
-      - 8080:8080
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    volumes:
-      - ${DATA_PATH}/letsencrypt:/etc/letsencrypt
-      - ${DATA_PATH}/traefik:/etc/traefik:ro
-      - ${DATA_PATH}/traefik/plugins-storage:/plugins-storage
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-  trala:
-    cap_drop:
-      - ALL
-    container_name: trala
-    environment:
-      LOG_LEVEL: info
-      REFRESH_INTERVAL_SECONDS: 30
-      SEARCH_ENGINE_URL: "https://duckduckgo.com/?q:"
-      TRAEFIK_API_HOST: http://traefik:8080
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/dannybouwers/trala
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/trala:/config:ro
-  unpackerr:
-    cap_drop:
-      - ALL
-    container_name: unpackerr
-    environment:
-      <<: *a1
-      UN_DEBUG: false
-      UN_DIR_MODE: 755
-      UN_FILE_MODE: 644
-      UN_FOLDER_0_DELETE_AFTER: 10m
-      UN_FOLDER_0_DELETE_FILES: false
-      UN_FOLDER_0_DELETE_ORIGINAL: false
-      UN_FOLDER_0_EXTRACT_PATH: /downloads
-      UN_FOLDER_0_MOVE_BACK: false
-      UN_FOLDER_0_PATH: /downloads
-      UN_INTERVAL: 2m
-      UN_MAX_RETRIES: 3
-      UN_PARALLEL: 1
-      UN_RETRY_DELAY: 5m
-      UN_START_DELAY: 1m
-    image: golift/unpackerr
-    labels:
-      traefik.enable: false
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${MEDIA_PATH}/downloads:/downloads
-  valkey:
-    cap_add:
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    command: --save 60 1 --loglevel warning
-    container_name: valkey
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      test: [ "CMD-SHELL", "valkey-cli ping | grep PONG" ]
-      timeout: 3s
-    image: valkey/valkey
-    labels:
-      traefik.enable: false
-    ports:
-      - 6379:6379
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/valkey:/data
-  wizarr:
-    # nx:root-allowed - handles user switching internally
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
-    container_name: wizarr
-    environment:
-      <<: *a1
-      DISABLE_BUILTIN_AUTH: false
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: [ "CMD-SHELL", "curl -f http://localhost:5690 || exit 1" ]
-      timeout: 10s
-    image: ghcr.io/wizarrrr/wizarr
-    ports:
-      - 5690:5690
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${DATA_PATH}/wizarr/database:/data/database
-      - ${DATA_PATH}/wizarr/wizard:/data/wizard_steps
-  watchtower:
-    cap_drop:
-      - ALL
-    container_name: watchtower
-    environment:
-      IMDB_WATCHLISTS: ${WATCHTOWER_IMDB_WATCHLISTS:-}
-      PLEX_CLIENT_ID: ${WATCHTOWER_PLEX_CLIENT_ID:-}
-      PLEX_SERVER_URL: ${WATCHTOWER_PLEX_SERVER_URL:-}
-      PLEX_TOKEN: ${WATCHTOWER_PLEX_TOKEN:-}
-      PORT: ${WATCHTOWER_PORT:-9001}
-      SESSION_SECRET: ${WATCHTOWER_SESSION_SECRET:?watchtower session secret not defined}
-      TMDB_API_KEY: ${WATCHTOWER_TMDB_API_KEY:-}
-      TRAKT_CLIENT_ID: ${WATCHTOWER_TRAKT_CLIENT_ID:-}
-      TRAKT_CLIENT_SECRET: ${WATCHTOWER_TRAKT_CLIENT_SECRET:-}
-      TRAKT_USERNAME: ${WATCHTOWER_TRAKT_USERNAME:-}
-    image: ghcr.io/jovalle/watchtower
-    labels:
-      homepage.description:
-      homepage.group: Tools
-      homepage.href: https://watchtower.${DOMAIN}
-      homepage.icon: 'https://ik.imagekit.io/technis/w-cropped.png'
-      homepage.name: watchtower
-    ports:
-      - 9001:9001
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: 1001:1001
-    volumes:
-      - ${DATA_PATH}/watchtower:/data
+# =============================================================================
+# Nexus - Root Compose
+# =============================================================================
+# Global orchestration layer. All child services inherit the root .env.
+# Service-specific vars are loaded from services/<name>/.env where applicable.
+#
+# Usage:
+#   docker compose up -d                   # Start all services
+#   docker compose up -d <service>         # Start a specific service
+#   docker compose ps                      # Show status
+#   docker compose logs -f <service>       # Follow logs
+# =============================================================================
+
+include:
+  # --- Gateway & Networking ---
+  - path: services/adguard/compose.yaml
+    env_file:
+      - .env
+  - path: services/cloudflared/compose.yaml
+    env_file:
+      - .env
+      - services/cloudflared/.env
+  - path: services/gluetun/compose.yaml
+    env_file:
+      - .env
+      - services/gluetun/.env
+  - path: services/tailscale/compose.yaml
+    env_file:
+      - .env
+      - services/tailscale/.env
+  - path: services/traefik/compose.yaml
+    env_file:
+      - .env
+      - services/traefik/.env
+  - path: services/whoami/compose.yaml
+    env_file:
+      - .env
+
+  # --- Infrastructure ---
+  - path: services/docker-socket-proxy/compose.yaml
+    env_file:
+      - .env
+  - path: services/mariadb/compose.yaml
+    env_file:
+      - .env
+      - services/mariadb/.env
+  - path: services/postgres/compose.yaml
+    env_file:
+      - .env
+      - services/postgres/.env
+  - path: services/redis/compose.yaml
+    env_file:
+      - .env
+      - services/redis/.env
+  - path: services/valkey/compose.yaml
+    env_file:
+      - .env
+
+  # --- Monitoring & Observability ---
+  - path: services/beszel/compose.yaml
+    env_file:
+      - .env
+      - services/beszel/.env
+  - path: services/beszel-agent/compose.yaml
+    env_file:
+      - .env
+      - services/beszel-agent/.env
+  - path: services/cadvisor/compose.yaml
+    env_file:
+      - .env
+  - path: services/dozzle/compose.yaml
+    env_file:
+      - .env
+  - path: services/glances/compose.yaml
+    env_file:
+      - .env
+  - path: services/grafana/compose.yaml
+    env_file:
+      - .env
+      - services/grafana/.env
+  - path: services/intel-gpu-exporter/compose.yaml
+    env_file:
+      - .env
+  - path: services/kromgo/compose.yaml
+    env_file:
+      - .env
+      - services/kromgo/.env
+  - path: services/loggifly/compose.yaml
+    env_file:
+      - .env
+  - path: services/loki/compose.yaml
+    env_file:
+      - .env
+  - path: services/node-exporter/compose.yaml
+    env_file:
+      - .env
+  - path: services/plex-exporter/compose.yaml
+    env_file:
+      - .env
+      - services/plex-exporter/.env
+  - path: services/prometheus/compose.yaml
+    env_file:
+      - .env
+  - path: services/promtail/compose.yaml
+    env_file:
+      - .env
+  - path: services/smartctl-exporter/compose.yaml
+    env_file:
+      - .env
+  - path: services/tracearr/compose.yaml
+    env_file:
+      - .env
+      - services/tracearr/.env
+  - path: services/wud/compose.yaml
+    env_file:
+      - .env
+
+  # --- Media ---
+  - path: services/bazarr/compose.yaml
+    env_file:
+      - .env
+      - services/bazarr/.env
+  - path: services/boxarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/flaresolverr/compose.yaml
+    env_file:
+      - .env
+      - services/flaresolverr/.env
+  - path: services/imdbarr/compose.yaml
+    env_file:
+      - .env
+      - services/imdbarr/.env
+  - path: services/jellyfin/compose.yaml
+    env_file:
+      - .env
+      - services/jellyfin/.env
+  - path: services/lidarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/music-assistant/compose.yaml
+    env_file:
+      - .env
+  - path: services/navidrome/compose.yaml
+    env_file:
+      - .env
+      - services/navidrome/.env
+  - path: services/overseerr/compose.yaml
+    env_file:
+      - .env
+      - services/overseerr/.env
+  - path: services/plex/compose.yaml
+    env_file:
+      - .env
+      - services/plex/.env
+  - path: services/profilarr/compose.yaml
+    env_file:
+      - .env
+      - services/profilarr/.env
+  - path: services/prowlarr/compose.yaml
+    env_file:
+      - .env
+      - services/prowlarr/.env
+  - path: services/pulsarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/qbittorrent/compose.yaml
+    env_file:
+      - .env
+      - services/qbittorrent/.env
+  - path: services/radarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/sabnzbd/compose.yaml
+    env_file:
+      - .env
+      - services/sabnzbd/.env
+  - path: services/sonarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/tautulli/compose.yaml
+    env_file:
+      - .env
+      - services/tautulli/.env
+  - path: services/unpackerr/compose.yaml
+    env_file:
+      - .env
+
+  # --- Productivity & Apps ---
+  - path: services/excalidraw/compose.yaml
+    env_file:
+      - .env
+  - path: services/filebrowser/compose.yaml
+    env_file:
+      - .env
+  - path: services/miniflux/compose.yaml
+    env_file:
+      - .env
+      - services/miniflux/.env
+  - path: services/nextcloud/compose.yaml
+    env_file:
+      - .env
+      - services/nextcloud/.env
+  - path: services/ntfy/compose.yaml
+    env_file:
+      - .env
+  - path: services/paperless/compose.yaml
+    env_file:
+      - .env
+      - services/paperless/.env
+  - path: services/searxng/compose.yaml
+    env_file:
+      - .env
+  - path: services/syncthing/compose.yaml
+    env_file:
+      - .env
+  - path: services/wallos/compose.yaml
+    env_file:
+      - .env
+
+  # --- Dashboards & Management ---
+  - path: services/agregarr/compose.yaml
+    env_file:
+      - .env
+  - path: services/dockpeek/compose.yaml
+    env_file:
+      - .env
+      - services/dockpeek/.env
+  - path: services/domain-locker/compose.yaml
+    env_file:
+      - .env
+      - services/domain-locker/.env
+  - path: services/harborguard/compose.yaml
+    env_file:
+      - .env
+  - path: services/homarr/compose.yaml
+    env_file:
+      - .env
+      - services/homarr/.env
+  - path: services/homehub/compose.yaml
+    env_file:
+      - .env
+  - path: services/homepage/compose.yaml
+    env_file:
+      - .env
+  - path: services/mytabs/compose.yaml
+    env_file:
+      - .env
+  - path: services/pgadmin/compose.yaml
+    env_file:
+      - .env
+      - services/pgadmin/.env
+  - path: services/wizarr/compose.yaml
+    env_file:
+      - .env
+
+  # --- Utilities ---
+  - path: services/audiodeck/compose.yaml
+    env_file:
+      - .env
+  - path: services/duplicati/compose.yaml
+    env_file:
+      - .env
+      - services/duplicati/.env
+  - path: services/gotenberg/compose.yaml
+    env_file:
+      - .env
+  - path: services/meilisearch/compose.yaml
+    env_file:
+      - .env
+      - services/meilisearch/.env
+  - path: services/newt/compose.yaml
+    env_file:
+      - .env
+      - services/newt/.env
+  - path: services/nxctl/compose.yaml
+    env_file:
+      - .env
+  - path: services/omni-tools/compose.yaml
+    env_file:
+      - .env
+  - path: services/pulse/compose.yaml
+    env_file:
+      - .env
+  - path: services/stringer/compose.yaml
+    env_file:
+      - .env
+      - services/stringer/.env
+  - path: services/tika/compose.yaml
+    env_file:
+      - .env
+  - path: services/trala/compose.yaml
+    env_file:
+      - .env
+  - path: services/watchtower/compose.yaml
+    env_file:
+      - .env
+      - services/watchtower/.env
+
+  # --- Photo & Backup ---
+  - path: services/immich/compose.yaml
+    env_file:
+      - .env
+      - services/immich/.env
+
+  # --- AI & Voice ---
+  - path: services/wyoming/compose.yaml
+    env_file:
+      - .env
+
+  # --- Added by sync 2026-02-08 ---
+
+  # --- Added by sync 2026-02-08 ---
+  - path: services/garage/compose.yaml
+    env_file:
+      - .env
+      - services/garage/.env
+

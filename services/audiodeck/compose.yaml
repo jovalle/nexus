@@ -1,0 +1,43 @@
+services:
+  audiodeck:
+    image: casantosmu/audiodeck
+    container_name: audiodeck
+    hostname: audiodeck
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:4747 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media Streaming
+      homepage.name: Audiodeck
+      homepage.icon: si-audioboom
+      homepage.description: Audiobook streaming server
+      homepage.href: https://audiodeck.${DOMAIN}
+      traefik.http.services.audiodeck.loadbalancer.server.port: 4747
+    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    volumes:
+      - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

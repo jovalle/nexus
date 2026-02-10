@@ -1,0 +1,42 @@
+services:
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr
+    container_name: wizarr
+    hostname: wizarr
+    environment:
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5690 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media
+      homepage.name: Wizarr
+      homepage.icon: wizarr
+      homepage.description: Media Server Invitation System
+      homepage.href: https://wizarr.${DOMAIN}
+      traefik.http.services.wizarr.loadbalancer.server.port: 5690
+    ports:
+      - 5690:5690
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 512M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/wizarr/database:/data/database
+      - ${DATA_PATH}/wizarr/wizard_steps:/data/wizard_steps
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

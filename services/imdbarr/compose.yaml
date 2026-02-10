@@ -1,0 +1,45 @@
+services:
+  imdbarr:
+    image: ghcr.io/skulltrail/imdbarr
+    container_name: imdbarr
+    hostname: imdbarr
+    user: "1000:1000"
+    environment:
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+      BASE_URL: https://imdbarr.${DOMAIN}
+      PORT: "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: IMDBarr
+      homepage.icon: imdb
+      homepage.description: IMDB Integration
+      homepage.href: https://imdbarr.${DOMAIN}
+      traefik.http.services.imdbarr.loadbalancer.server.port: 3000
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

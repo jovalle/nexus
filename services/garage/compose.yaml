@@ -1,0 +1,40 @@
+services:
+  garage:
+    image: dxflrs/garage:v2.1.0
+    container_name: garage
+    hostname: garage
+    environment:
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["NONE"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Storage
+      homepage.name: Garage
+      homepage.icon: minio
+      homepage.description: S3-compatible Object Storage
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    volumes:
+      - ${DATA_PATH}/garage/config/garage.toml:/etc/garage.toml:ro
+      - ${DATA_PATH}/garage/meta:/var/lib/garage/meta
+      - ${DATA_PATH}/garage/data:/var/lib/garage/data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

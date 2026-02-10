@@ -1,0 +1,40 @@
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: valkey
+    hostname: valkey
+    command: valkey-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      homepage.group: Databases
+      homepage.name: Valkey
+      homepage.icon: valkey
+      homepage.description: Redis Fork Data Store
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    cap_add:
+      - SETUID
+      - SETGID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/valkey:/data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

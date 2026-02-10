@@ -1,0 +1,37 @@
+services:
+  dozzle:
+    image: amir20/dozzle
+    container_name: dozzle
+    hostname: dozzle
+    environment:
+      DOZZLE_LEVEL: info
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Observability
+      homepage.name: Dozzle
+      homepage.icon: dozzle
+      homepage.description: Real-time Container Logs
+      homepage.href: https://dozzle.${DOMAIN}
+      traefik.http.routers.dozzle.middlewares: basic-auth@file
+      traefik.http.services.dozzle.loadbalancer.server.port: 8080
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+    restart: unless-stopped
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

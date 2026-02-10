@@ -1,0 +1,46 @@
+services:
+  beszel-agent:
+    image: henrygd/beszel-agent
+    container_name: beszel-agent
+    hostname: beszel-agent
+    environment:
+      LISTEN: "45876"
+      KEY: ${BESZEL_AGENT_KEY:-}
+    healthcheck:
+      test: ["NONE"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      homepage.group: Observability
+      homepage.name: Beszel Agent
+      homepage.icon: beszel
+      homepage.description: Server Monitoring Agent
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - beszel_agent_data:/var/lib/beszel-agent
+    networks:
+      - nexus
+
+volumes:
+  beszel_agent_data:
+
+networks:
+  nexus:
+    external: true

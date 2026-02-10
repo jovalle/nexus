@@ -1,0 +1,53 @@
+services:
+  mariadb:
+    image: mariadb:11.8
+    container_name: mariadb
+    hostname: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-nextcloud}
+      MYSQL_USER: ${MYSQL_USER:-nextcloud}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      homepage.group: Databases
+      homepage.name: MariaDB
+      homepage.icon: mariadb
+      homepage.description: MySQL-Compatible Database
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+      - /run/mysqld:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/mariadb:/var/lib/mysql
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

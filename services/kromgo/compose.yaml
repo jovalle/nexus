@@ -1,0 +1,36 @@
+services:
+  kromgo:
+    image: ghcr.io/kashalls/kromgo
+    container_name: kromgo
+    hostname: kromgo
+    user: "65532:65532"
+    environment:
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+    healthcheck:
+      test: ["NONE"]
+    labels:
+      homepage.group: Observability
+      homepage.name: Kromgo
+      homepage.icon: prometheus
+      homepage.description: Prometheus Badge Generator
+      homepage.href: https://kromgo.${DOMAIN}
+      traefik.http.services.kromgo.loadbalancer.server.port: 8080
+    ports:
+      - 8082:8080
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/kromgo/kromgo.yaml:/kromgo/config.yaml:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

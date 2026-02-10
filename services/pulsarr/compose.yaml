@@ -1,0 +1,47 @@
+services:
+  pulsarr:
+    image: lakker/pulsarr
+    container_name: pulsarr
+    hostname: pulsarr
+    environment:
+      TZ: ${TZ:-UTC}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/api/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Pulsarr
+      homepage.icon: pulsarr
+      homepage.description: Plex Watchlist Automation
+      homepage.href: https://pulsarr.${DOMAIN}
+      traefik.http.routers.pulsarr.middlewares: basic-auth@file
+      traefik.http.services.pulsarr.loadbalancer.server.port: 3003
+    ports:
+      - 3003:3003
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/pulsarr/data:/app/data
+      - ${DATA_PATH}/pulsarr/.env:/app/.env:ro
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

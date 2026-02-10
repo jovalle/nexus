@@ -1,0 +1,49 @@
+services:
+  filebrowser:
+    image: filebrowser/filebrowser:s6
+    container_name: filebrowser
+    hostname: filebrowser
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      FB_NOAUTH: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Documents
+      homepage.name: File Browser
+      homepage.icon: filebrowser
+      homepage.description: Web File Manager
+      homepage.href: https://files.${DOMAIN}
+      traefik.http.routers.filebrowser.middlewares: basic-auth@file
+      traefik.http.services.filebrowser.loadbalancer.server.port: 80
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/filebrowser/filebrowser.db:/database/filebrowser.db
+      - ${DATA_PATH}/filebrowser/settings.json:/config/settings.json
+      - ${DATA_PATH}:/srv
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

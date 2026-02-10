@@ -1,0 +1,51 @@
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      WEBUI_PORT: 10095
+      QBT_Preferences__WebUI__AuthSubnetWhitelistEnabled: "true"
+      QBT_Preferences__WebUI__AuthSubnetWhitelist: "0.0.0.0/0"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:10095 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Downloaders
+      homepage.name: qBittorrent
+      homepage.icon: qbittorrent
+      homepage.description: Torrent Client
+      homepage.href: https://qbittorrent.${DOMAIN}
+      homepage.widget.type: qbittorrent
+      homepage.widget.url: http://gluetun:10095
+      homepage.widget.username: ${QBITTORRENT_USERNAME:-admin}
+      homepage.widget.password: ${QBITTORRENT_PASSWORD:-}
+      traefik.http.services.qbittorrent.loadbalancer.server.port: 10095
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/qbittorrent:/config
+      - ${MEDIA_PATH}/downloads:/downloads

@@ -1,0 +1,51 @@
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    hostname: sonarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Sonarr
+      homepage.icon: sonarr
+      homepage.description: TV Series Collection Manager
+      homepage.href: https://sonarr.${DOMAIN}
+      homepage.widget.type: sonarr
+      homepage.widget.url: http://sonarr:8989
+      homepage.widget.key: ${SONARR_API_KEY:-}
+      traefik.http.routers.sonarr.middlewares: basic-auth@file
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/sonarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/series:/series
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

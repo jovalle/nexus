@@ -1,0 +1,52 @@
+services:
+  tracearr:
+    image: ghcr.io/connorgallopo/tracearr:supervised
+    container_name: tracearr
+    hostname: tracearr
+    environment:
+      TZ: ${TZ:-America/New_York}
+      LOG_LEVEL: ${TRACEARR_LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Tracearr
+      homepage.icon: tracearr
+      homepage.description: Media Tracking Dashboard
+      homepage.href: https://tracearr.${DOMAIN}
+      traefik.http.services.tracearr.loadbalancer.server.port: 3000
+    ports:
+      - 3010:3000
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    volumes:
+      - tracearr_data:/data/tracearr
+      - tracearr_postgres:/data/postgres
+      - tracearr_redis:/data/redis
+    networks:
+      - nexus
+
+volumes:
+  tracearr_data:
+  tracearr_postgres:
+  tracearr_redis:
+
+networks:
+  nexus:
+    external: true

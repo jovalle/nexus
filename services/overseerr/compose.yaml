@@ -1,0 +1,50 @@
+services:
+  overseerr:
+    image: lscr.io/linuxserver/overseerr
+    container_name: overseerr
+    hostname: overseerr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5055/api/v1/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Overseerr
+      homepage.icon: overseerr
+      homepage.description: Media Request Manager
+      homepage.href: https://overseerr.${DOMAIN}
+      homepage.widget.type: overseerr
+      homepage.widget.url: http://overseerr:5055
+      homepage.widget.key: ${OVERSEERR_API_KEY:-}
+    ports:
+      - 5055:5055
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/overseerr:/config
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

@@ -1,9 +1,35 @@
-.direnv/
+# IDE / OS
+.claude/
 .DS_Store
+
+# direnv
+.direnv/
+.envrc*
+
+# secrets & env files
 .env
-.local/
-* copy.yaml
 *.env
-archive/*
+*.local
+.local/
+
+# persistent data & backups
+docker/
+stacks/
 backups/
-docker/syncthing/Sync/
+
+# archive (keep structure, ignore contents)
+archive/*
+
+# misc sensitive file types
+*.bak
+*.sql
+*.sqlite
+*.log
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# editor artifacts
+* copy.yaml

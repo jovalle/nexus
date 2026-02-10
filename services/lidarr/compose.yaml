@@ -1,0 +1,51 @@
+services:
+  lidarr:
+    image: lscr.io/linuxserver/lidarr
+    container_name: lidarr
+    hostname: lidarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8686/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Lidarr
+      homepage.icon: lidarr
+      homepage.description: Music Collection Manager
+      homepage.href: https://lidarr.${DOMAIN}
+      homepage.widget.type: lidarr
+      homepage.widget.url: http://lidarr:8686
+      homepage.widget.key: ${LIDARR_API_KEY:-}
+      traefik.http.routers.lidarr.middlewares: basic-auth@file
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/lidarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/music:/music
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

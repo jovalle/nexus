@@ -1,0 +1,43 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    container_name: meilisearch
+    hostname: meilisearch
+    user: "1000:1000"
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
+      MEILI_NO_ANALYTICS: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7700/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      homepage.group: Databases
+      homepage.name: Meilisearch
+      homepage.icon: meilisearch
+      homepage.description: Search Engine
+      homepage.href: https://meilisearch.${DOMAIN}
+      traefik.http.routers.meilisearch.middlewares: basic-auth@file
+      traefik.http.services.meilisearch.loadbalancer.server.port: 7700
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - ${DATA_PATH}/meilisearch:/meili_data
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

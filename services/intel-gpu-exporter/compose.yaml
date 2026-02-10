@@ -1,0 +1,39 @@
+services:
+  intel-gpu-exporter:
+    image: ghcr.io/clambin/intel-gpu-exporter
+    container_name: intel-gpu-exporter
+    hostname: intel-gpu-exporter
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      homepage.group: Observability
+      homepage.name: Intel GPU Exporter
+      homepage.icon: prometheus
+      homepage.description: Intel GPU Metrics Exporter
+      traefik.enable: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    devices:
+      - /dev/dri:/dev/dri
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

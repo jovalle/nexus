@@ -1,0 +1,49 @@
+services:
+  tailscale:
+    image: tailscale/tailscale
+    container_name: tailscale
+    hostname: nexus
+    environment:
+      TS_AUTHKEY: "${TAILSCALE_AUTH_KEY:?tailscale auth key not defined}"
+      TS_EXTRA_ARGS: --accept-routes=false --advertise-exit-node=true
+      TS_ROUTES: 192.168.1.0/24,192.168.10.0/24
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "tailscale status --json | grep -q 'BackendState.*Running' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Gateway
+      homepage.name: Tailscale
+      homepage.icon: tailscale
+      homepage.description: VPN Mesh Network
+      homepage.widget.type: tailscale
+      homepage.widget.deviceid: ${TAILSCALE_DEVICE_ID:?tailscale device id not defined}
+      homepage.widget.key: "{{HOMEPAGE_FILE_TAILSCALE_KEY}}"
+      traefik.enable: "false"
+    network_mode: host
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ${DATA_PATH}/tailscale/data:/var/lib/tailscale:rw
+      - ${DATA_PATH}/tailscale:/var/run/tailscale

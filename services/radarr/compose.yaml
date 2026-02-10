@@ -1,0 +1,51 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr
+    container_name: radarr
+    hostname: radarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Media Automation
+      homepage.name: Radarr
+      homepage.icon: radarr
+      homepage.description: Movie Collection Manager
+      homepage.href: https://radarr.${DOMAIN}
+      homepage.widget.type: radarr
+      homepage.widget.url: http://radarr:7878
+      homepage.widget.key: ${RADARR_API_KEY:-}
+      traefik.http.routers.radarr.middlewares: basic-auth@file
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ${DATA_PATH}/radarr:/config
+      - ${MEDIA_PATH}/downloads:/downloads
+      - ${MEDIA_PATH}/movies:/movies
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true

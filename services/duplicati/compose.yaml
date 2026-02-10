@@ -1,0 +1,49 @@
+services:
+  duplicati:
+    image: lscr.io/linuxserver/duplicati
+    container_name: duplicati
+    hostname: duplicati
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8200 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      homepage.group: Utilities
+      homepage.name: Duplicati
+      homepage.icon: duplicati
+      homepage.description: Backup Solution
+      homepage.href: https://duplicati.${DOMAIN}
+      traefik.http.services.duplicati.loadbalancer.server.port: 8200
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - ${DATA_PATH}/duplicati/config:/config
+      - ${DATA_PATH}:/source:ro
+      - ${BACKUP_PATH}:/backups
+    networks:
+      - nexus
+
+networks:
+  nexus:
+    external: true
