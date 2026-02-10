@@ -4,6 +4,7 @@ services:
     container_name: syncthing
     hostname: syncthing
     environment:
+      GOGC: 50
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
@@ -28,11 +29,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '2.0'
+          memory: 2G
         reservations:
-          cpus: '0.25'
-          memory: 128M
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
