@@ -273,9 +273,6 @@ include:
     env_file:
       - .env
       - services/newt/.env
-  - path: services/nxctl/compose.yaml
-    env_file:
-      - .env
   - path: services/omni-tools/compose.yaml
     env_file:
       - .env
