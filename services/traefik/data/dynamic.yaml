@@ -1,0 +1,112 @@
+# Traefik Dynamic Configuration
+# docker/traefik/dynamic.yaml:/etc/traefik/dynamic.yaml
+# This file is watched for changes and automatically reloaded by Traefik
+# Add your external services here that aren't managed by Docker
+#
+# DEFAULTS (configured in docker-compose.yaml entrypoints):
+# - All HTTP traffic redirects to HTTPS (web entrypoint)
+# - All HTTPS traffic gets "internal" middleware by default (websecure entrypoint)
+# - To expose a service to the internet, explicitly use "external@file" middleware
+
+http:
+  # ===========================================
+  # MIDDLEWARES
+  #
+  # Note: "internal" middleware is applied by default via entrypoint
+  # Only specify middlewares when overriding (e.g., basic-auth)
+  # ===========================================
+  middlewares:
+    # -------------------------------------------------------------------------
+    # auth - Authelia ForwardAuth Middleware (Standard)
+    # -------------------------------------------------------------------------
+    # Delegates authentication to Authelia for 2FA.
+    # -------------------------------------------------------------------------
+    auth:
+      forwardAuth:
+        address: http://authelia:9091/api/authz/forward-auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Email
+          - Remote-Name
+
+    # -------------------------------------------------------------------------
+    # basic-auth - Authelia ForwardAuth with Basic Auth Support (1FA)
+    # -------------------------------------------------------------------------
+    # Same as authelia middleware but with authelia_url parameter.
+    # This is used for 1FA authentication (password only).
+    # -------------------------------------------------------------------------
+    basic-auth:
+      forwardAuth:
+        address: 'http://authelia:9091/api/authz/forward-auth?authelia_url=https://auth.{{ env "DOMAIN" }}'
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Email
+          - Remote-Name
+
+  # ===========================================
+  # ROUTERS
+  # ===========================================
+  routers:
+    console:
+      rule: 'Host(`console.nexus.{{ env "DOMAIN" }}`)'
+      service: "console"
+    gateway:
+      rule: 'Host(`gateway.{{ env "DOMAIN" }}`) || Host(`warpgate.{{ env "DOMAIN" }}`)'
+      service: "gateway"
+    gatus:
+      rule: 'Host(`gatus.{{ env "DOMAIN" }}`) || Host(`status.{{ env "DOMAIN" }}`)'
+      service: "gatus"
+    proxmox:
+      rule: 'Host(`proxmox.{{ env "DOMAIN" }}`) || Host(`pve.{{ env "DOMAIN" }}`)'
+      service: "proxmox"
+    truenas:
+      rule: 'Host(`truenas.{{ env "DOMAIN" }}`) || Host(`nexus.{{ env "DOMAIN" }}`)'
+      service: "truenas"
+
+  # ===========================================
+  # SERVICES
+  # ===========================================
+  services:
+    console:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.1.33"
+    gateway:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.1.1"
+    gatus:
+      loadBalancer:
+        servers:
+          - url: "http://100.100.1.1:8181"
+    proxmox:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.10.10:8006"
+    truenas:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.1.2:8443"
+
+# ===========================================
+# TLS CONFIGURATION
+# ===========================================
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    modern:
+      minVersion: VersionTLS13
+      sniStrict: true
