@@ -1,25 +1,18 @@
+networks:
+  nexus:
+    external: true
 services:
   unpackerr:
-    image: ghcr.io/unpackerr/unpackerr
+    cap_drop:
+      - ALL
     container_name: unpackerr
-    hostname: unpackerr
-    user: "1000:1000"
-    environment:
-      TZ: ${TZ:-America/New_York}
-      UN_SONARR_0_URL: http://sonarr:8989
-      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
-      UN_RADARR_0_URL: http://radarr:7878
-      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
-      UN_LIDARR_0_URL: http://lidarr:8686
-      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY:-}
-    healthcheck:
-      test: ["NONE"]
-    labels:
-      homepage.group: Downloaders
-      homepage.name: Unpackerr
-      homepage.icon: unpackerr
-      homepage.description: Archive Extractor for *arr Apps
-      traefik.enable: "false"
+    depends_on:
+      lidarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+      sonarr:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -28,18 +21,31 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    environment:
+      TZ: ${TZ:?TZ not set}
+      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY:?LIDARR_API_KEY not set}
+      UN_LIDARR_0_URL: http://lidarr:8686
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:?RADARR_API_KEY not set}
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:?SONARR_API_KEY not set}
+      UN_SONARR_0_URL: http://sonarr:8989
+    healthcheck:
+      test: [ "NONE" ]
+    hostname: unpackerr
+    image: ghcr.io/unpackerr/unpackerr
+    labels:
+      homepage.description: Archive Extractor for *arr Apps
+      homepage.group: Curation
+      homepage.icon: unpackerr
+      homepage.name: Unpackerr
+      traefik.enable: false
+    networks:
+      - nexus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${MEDIA_PATH}/downloads:/downloads
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/downloads:/downloads

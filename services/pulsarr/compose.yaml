@@ -1,26 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   pulsarr:
-    image: lakker/pulsarr
+    cap_drop:
+      - ALL
     container_name: pulsarr
-    hostname: pulsarr
-    environment:
-      TZ: ${TZ:-UTC}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/api/docs || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Media Automation
-      homepage.name: Pulsarr
-      homepage.icon: pulsarr
-      homepage.description: Plex Watchlist Automation
-      homepage.href: https://pulsarr.${DOMAIN}
-      traefik.http.routers.pulsarr.middlewares: basic-auth@file
-      traefik.http.services.pulsarr.loadbalancer.server.port: 3003
-    ports:
-      - 3003:3003
     deploy:
       resources:
         limits:
@@ -29,19 +14,33 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3003/api/docs || exit 1" ]
+      timeout: 10s
+    hostname: pulsarr
+    image: lakker/pulsarr
+    labels:
+      homepage.description: Plex Watchlist Automation
+      homepage.group: Media Automation
+      homepage.href: https://pulsarr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: pulsarr
+      homepage.name: Pulsarr
+      traefik.http.routers.pulsarr.middlewares: basic-auth@file
+      traefik.http.routers.pulsarr.rule: Host(`pulsarr.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
+    ports:
+      - 3003:3003
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/pulsarr/data:/app/data
-      - ${DATA_PATH}/pulsarr/.env:/app/.env:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/app/data

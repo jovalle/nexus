@@ -1,38 +1,19 @@
+networks:
+  nexus:
+    external: true
 services:
   immich:
-    image: ghcr.io/immich-app/immich-server:release
+    cap_drop:
+      - ALL
+    command: [ "start.sh", "immich" ]
     container_name: immich
-    hostname: immich
     depends_on:
-      - postgres
-      - redis
-    command: ["start.sh", "immich"]
-    environment:
-      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:-postgres}
-      DB_USERNAME: ${IMMICH_DB_USER:-immich}
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:-}
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:-immich}
-      REDIS_HOSTNAME: redis
-      UPLOAD_LOCATION: /usr/src/app/upload
-      IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:2283/api/server/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    labels:
-      homepage.group: Documents
-      homepage.name: Immich
-      homepage.icon: immich
-      homepage.description: Photo and Video Management
-      homepage.href: https://immich.${DOMAIN}
-      homepage.widget.type: immich
-      homepage.widget.url: http://immich-server:2283
-      homepage.widget.key: ${IMMICH_API_KEY:-}
-      traefik.http.services.immich-server.loadbalancer.server.port: 2283
-    ports:
-      - 2283:2283
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -41,37 +22,60 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    environment:
+      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?IMMICH_DB_NAME not set}
+      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:?IMMICH_DB_HOSTNAME not set}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?IMMICH_DB_PASSWORD not set}
+      DB_USERNAME: ${IMMICH_DB_USER:?IMMICH_DB_USER not set}
+      IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
+      REDIS_HOSTNAME: redis
+      UPLOAD_LOCATION: /usr/src/app/upload
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 120s
+      test: [ "CMD-SHELL", "curl -f http://localhost:2283/api/server/ping || exit 1" ]
+      timeout: 10s
+    hostname: immich
+    image: ghcr.io/immich-app/immich-server:release
+    labels:
+      homepage.description: Photo and Video Management
+      homepage.group: Documents
+      homepage.href: https://immich.${DOMAIN:?DOMAIN not set}
+      homepage.icon: immich
+      homepage.name: Immich
+      homepage.widget.key: ${IMMICH_API_KEY:?IMMICH_API_KEY not set}
+      homepage.widget.type: immich
+      homepage.widget.url: http://immich-server:2283
+      traefik.http.routers.immich-server.middlewares: internal@file
+      traefik.http.routers.immich-server.rule: Host(`immich.${DOMAIN:?DOMAIN not set}`)
+      traefik.http.routers.immich.rule: Host(`photos.${DOMAIN:?DOMAIN not set}`)
+      traefik.http.routers.immich.service: immich-server
+      traefik.http.services.immich-server.loadbalancer.server.port: 2283
+    networks:
+      - nexus
+    ports:
+      - 2283:2283
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/immich/upload:/usr/src/app/upload
-      - ${MEDIA_PATH}/photos:/usr/src/app/external:ro
-    networks:
-      - nexus
-
+      - ./upload:/usr/src/app/upload
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/photos:/usr/src/app/external:ro
   immich-ml:
-    image: ghcr.io/immich-app/immich-machine-learning:release
+    cap_drop:
+      - ALL
     container_name: immich-ml
-    hostname: immich-ml
-    environment:
-      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:-postgres}
-      DB_USERNAME: ${IMMICH_DB_USER:-immich}
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:-}
-      DB_DATABASE_NAME: ${IMMICH_DB_NAME:-immich}
-      REDIS_HOSTNAME: redis
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:3003/ping\")' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    labels:
-      traefik.enable: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -80,18 +84,29 @@ services:
         reservations:
           cpus: '0.5'
           memory: 1G
+    environment:
+      DB_DATABASE_NAME: ${IMMICH_DB_NAME:?IMMICH_DB_NAME not set}
+      DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:?IMMICH_DB_HOSTNAME not set}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?IMMICH_DB_PASSWORD not set}
+      DB_USERNAME: ${IMMICH_DB_USER:?IMMICH_DB_USER not set}
+      REDIS_HOSTNAME: redis
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 120s
+      test: [ "CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:3003/ping\")' || exit 1" ]
+      timeout: 10s
+    hostname: immich-ml
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    labels:
+      traefik.enable: false
+    networks:
+      - nexus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=512m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/immich/model-cache:/cache
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./model-cache:/cache

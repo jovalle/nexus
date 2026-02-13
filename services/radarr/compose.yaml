@@ -1,28 +1,16 @@
+networks:
+  nexus:
+    external: true
 services:
   radarr:
-    image: lscr.io/linuxserver/radarr
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: radarr
-    hostname: radarr
-    environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Media Automation
-      homepage.name: Radarr
-      homepage.icon: radarr
-      homepage.description: Movie Collection Manager
-      homepage.href: https://radarr.${DOMAIN}
-      homepage.widget.type: radarr
-      homepage.widget.url: http://radarr:7878
-      homepage.widget.key: ${RADARR_API_KEY:-}
-      traefik.http.routers.radarr.middlewares: basic-auth@file
     deploy:
       resources:
         limits:
@@ -31,21 +19,37 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    environment:
+      PGID: ${PGID:?PGID not set}
+      PUID: ${PUID:?PUID not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1" ]
+      timeout: 10s
+    hostname: radarr
+    image: lscr.io/linuxserver/radarr
+    labels:
+      homepage.description: Movie Collection Manager
+      homepage.group: Media Automation
+      homepage.href: https://radarr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: radarr
+      homepage.name: Radarr
+      homepage.widget.key: ${RADARR_API_KEY:?RADARR_API_KEY not set}
+      homepage.widget.type: radarr
+      homepage.widget.url: http://radarr:7878
+      traefik.http.routers.radarr.middlewares: basic-auth@file
+      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
     restart: unless-stopped
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/radarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-      - ${MEDIA_PATH}/movies:/movies
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/config
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/downloads:/downloads
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/movies:/movies

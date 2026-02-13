@@ -1,28 +1,16 @@
+networks:
+  nexus:
+    external: true
 services:
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: prowlarr
-    hostname: prowlarr
-    environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Media Automation
-      homepage.name: Prowlarr
-      homepage.icon: prowlarr
-      homepage.description: Indexer Manager for *arr Apps
-      homepage.href: https://prowlarr.${DOMAIN}
-      homepage.widget.type: prowlarr
-      homepage.widget.url: http://prowlarr:9696
-      homepage.widget.key: ${PROWLARR_API_KEY:-}
-      traefik.http.routers.prowlarr.middlewares: basic-auth@file
     deploy:
       resources:
         limits:
@@ -31,20 +19,36 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    environment:
+      PGID: ${PGID:?PGID not set}
+      PUID: ${PUID:?PUID not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1" ]
+      timeout: 10s
+    hostname: prowlarr
+    image: lscr.io/linuxserver/prowlarr
+    labels:
+      homepage.description: Indexer Manager for *arr Apps
+      homepage.group: Media Automation
+      homepage.href: https://prowlarr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: prowlarr
+      homepage.name: Prowlarr
+      homepage.widget.key: ${PROWLARR_API_KEY:?PROWLARR_API_KEY not set}
+      homepage.widget.type: prowlarr
+      homepage.widget.url: http://prowlarr:9696
+      traefik.http.routers.prowlarr.middlewares: basic-auth@file
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
     restart: unless-stopped
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/prowlarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/config
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/downloads:/downloads

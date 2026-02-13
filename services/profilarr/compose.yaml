@@ -1,23 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   profilarr:
-    image: santiagosayshey/profilarr
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: profilarr
-    hostname: profilarr
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6868' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Media Automation
-      homepage.name: Profilarr
-      homepage.icon: profilarr
-      homepage.description: Quality Profile Manager for *arr Apps
-      homepage.href: https://profilarr.${DOMAIN}
-      traefik.http.routers.profilarr.middlewares: basic-auth@file
-    ports:
-      - 6868:6868
     deploy:
       resources:
         limits:
@@ -26,18 +18,30 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6868' || exit 1" ]
+      timeout: 10s
+    hostname: profilarr
+    image: santiagosayshey/profilarr
+    labels:
+      homepage.description: Quality Profile Manager for *arr Apps
+      homepage.group: Media Automation
+      homepage.href: https://profilarr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: profilarr
+      homepage.name: Profilarr
+      traefik.http.routers.profilarr.middlewares: basic-auth@file
+      traefik.http.routers.profilarr.rule: Host(`profilarr.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
+    ports:
+      - 6868:6868
     restart: unless-stopped
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/profilarr:/config
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/config

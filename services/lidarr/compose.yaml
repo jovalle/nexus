@@ -4,9 +4,9 @@ services:
     container_name: lidarr
     hostname: lidarr
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
+      PUID: ${PUID:?PUID not set}
+      PGID: ${PGID:?PGID not set}
+      TZ: ${TZ:?TZ not set}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8686/ping || exit 1"]
       interval: 30s
@@ -18,10 +18,11 @@ services:
       homepage.name: Lidarr
       homepage.icon: lidarr
       homepage.description: Music Collection Manager
-      homepage.href: https://lidarr.${DOMAIN}
+      homepage.href: https://lidarr.${DOMAIN:?DOMAIN not set}
       homepage.widget.type: lidarr
       homepage.widget.url: http://lidarr:8686
-      homepage.widget.key: ${LIDARR_API_KEY:-}
+      homepage.widget.key: ${LIDARR_API_KEY:?LIDARR_API_KEY not set}
+      traefik.http.routers.lidarr.rule: Host(`lidarr.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.lidarr.middlewares: basic-auth@file
     deploy:
       resources:
@@ -32,20 +33,23 @@ services:
           cpus: '0.25'
           memory: 128M
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
       - SETGID
       - SETUID
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/lidarr:/config
-      - ${MEDIA_PATH}/downloads:/downloads
-      - ${MEDIA_PATH}/music:/music
+      - ./data:/config
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/downloads:/downloads
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/music:/music
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

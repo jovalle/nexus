@@ -1,24 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   plex-exporter:
-    image: ghcr.io/timothystewart6/prometheus-plex-exporter
+    cap_drop:
+      - ALL
     container_name: plex-exporter
-    hostname: plex-exporter
-    user: "65534:65534"
-    environment:
-      PLEX_SERVER: ${PLEX_SERVER_URL:-http://192.168.1.3:32400}
-      PLEX_TOKEN: ${PLEX_TOKEN:-}
-    healthcheck:
-      test: ["NONE"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    labels:
-      homepage.group: Observability
-      homepage.name: Plex Exporter
-      homepage.icon: prometheus
-      homepage.description: Plex Metrics Exporter
-      traefik.enable: "false"
     deploy:
       resources:
         limits:
@@ -27,15 +14,27 @@ services:
         reservations:
           cpus: '0.05'
           memory: 16M
+    environment:
+      PLEX_SERVER: ${PLEX_SERVER_URL:?PLEX_SERVER_URL not set}
+      PLEX_TOKEN: ${PLEX_TOKEN:?PLEX_TOKEN not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 15s
+      test: [ "NONE" ]
+      timeout: 10s
+    hostname: plex-exporter
+    image: ghcr.io/timothystewart6/prometheus-plex-exporter
+    labels:
+      homepage.description: Plex Metrics Exporter
+      homepage.group: Observability
+      homepage.icon: prometheus
+      homepage.name: Plex Exporter
+      traefik.enable: false
+    networks:
+      - nexus
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+    user: "65534:65534"

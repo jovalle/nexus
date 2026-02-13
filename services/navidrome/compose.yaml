@@ -1,31 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   navidrome:
-    image: deluan/navidrome
+    cap_drop:
+      - ALL
     container_name: navidrome
-    hostname: navidrome
-    user: "1000:1000"
-    environment:
-      ND_SCANSCHEDULE: 1h
-      ND_LOGLEVEL: info
-      ND_SESSIONTIMEOUT: 24h
-      ND_BASEURL: ""
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:4533/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Media Streaming
-      homepage.name: Navidrome
-      homepage.icon: navidrome
-      homepage.description: Personal Music Streamer
-      homepage.href: https://navidrome.${DOMAIN}
-      homepage.widget.type: navidrome
-      homepage.widget.url: http://navidrome:4533
-      homepage.widget.user: ${NAVIDROME_API_USER:-}
-      homepage.widget.token: ${NAVIDROME_API_TOKEN:-}
-      homepage.widget.salt: ${NAVIDROME_API_SALT:-}
     deploy:
       resources:
         limits:
@@ -34,20 +14,39 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    environment:
+      ND_BASEURL: ""
+      ND_LOGLEVEL: info
+      ND_SCANSCHEDULE: 1h
+      ND_SESSIONTIMEOUT: 24h
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4533/ping || exit 1" ]
+      timeout: 10s
+    hostname: navidrome
+    image: deluan/navidrome
+    labels:
+      homepage.description: Personal Music Streamer
+      homepage.group: Media Streaming
+      homepage.href: https://navidrome.${DOMAIN:?DOMAIN not set}
+      homepage.icon: navidrome
+      homepage.name: Navidrome
+      homepage.widget.salt: ${NAVIDROME_API_SALT:?NAVIDROME_API_SALT not set}
+      homepage.widget.token: ${NAVIDROME_API_TOKEN:?NAVIDROME_API_TOKEN not set}
+      homepage.widget.type: navidrome
+      homepage.widget.url: http://navidrome:4533
+      homepage.widget.user: ${NAVIDROME_API_USER:?NAVIDROME_API_USER not set}
+    networks:
+      - nexus
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=512m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/navidrome:/data
-      - ${MEDIA_PATH}/music:/music:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/data
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/music:/music:ro

@@ -4,9 +4,9 @@ services:
     container_name: bazarr
     hostname: bazarr
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
+      PUID: ${PUID:?PUID not set}
+      PGID: ${PGID:?PGID not set}
+      TZ: ${TZ:?TZ not set}
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 6767 || exit 1"]
       interval: 30s
@@ -18,10 +18,11 @@ services:
       homepage.name: Bazarr
       homepage.icon: bazarr
       homepage.description: Subtitle Manager
-      homepage.href: https://bazarr.${DOMAIN:?no domain defined}
+      homepage.href: https://bazarr.${DOMAIN:?DOMAIN not set}
       homepage.widget.type: bazarr
       homepage.widget.url: http://bazarr:6767
-      homepage.widget.key: ${BAZARR_API_KEY:-}
+      homepage.widget.key: ${BAZARR_API_KEY:?BAZARR_API_KEY not set}
+      traefik.http.routers.bazarr.rule: Host(`bazarr.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.bazarr.middlewares: basic-auth@file
     deploy:
       resources:
@@ -32,20 +33,23 @@ services:
           cpus: '0.1'
           memory: 64M
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
       - SETGID
       - SETUID
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/bazarr:/config
-      - ${MEDIA_PATH}/movies:/movies:ro
-      - ${MEDIA_PATH}/series:/series:ro
+      - ./data:/config
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/movies:/movies:ro
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/series:/series:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

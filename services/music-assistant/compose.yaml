@@ -1,41 +1,33 @@
 services:
   music-assistant:
-    image: ghcr.io/music-assistant/server
-    container_name: music-assistant
-    hostname: music-assistant
-    environment:
-      LOG_LEVEL: info
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8095 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Media Streaming
-      homepage.name: Music Assistant
-      homepage.icon: music-assistant
-      homepage.description: Music streaming hub for all your music sources
-      homepage.href: https://music.${DOMAIN}
-      traefik.http.routers.music-assistant.rule: Host(`music.${DOMAIN}`) || Host(`music-assistant.${DOMAIN}`) || Host(`music-assistant.nexus.${DOMAIN}`)
-      traefik.http.services.music-assistant.loadbalancer.server.url: http://host.docker.internal:8095
-    network_mode: host
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
     cap_add:
       - DAC_READ_SEARCH
       - SYS_ADMIN
     cap_drop:
       - ALL
+    container_name: music-assistant
+    environment:
+      LOG_LEVEL: info
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q -O /dev/null http://localhost:8095 || exit 1" ]
+      timeout: 10s
+    hostname: music-assistant
+    image: ghcr.io/music-assistant/server
+    labels:
+      homepage.description: Music streaming hub for all your music sources
+      homepage.group: Media Streaming
+      homepage.href: https://music.${DOMAIN:?DOMAIN not set}
+      homepage.icon: music-assistant
+      homepage.name: Music Assistant
+      traefik.http.routers.music-assistant.rule: Host(`music.${DOMAIN:?DOMAIN not set}`) || Host(`music-assistant.${DOMAIN:?DOMAIN not set}`)
+      traefik.http.services.music-assistant.loadbalancer.server.url: http://host.docker.internal:8095
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - ${DATA_PATH}/music-assistant:/data
-      - ${MEDIA_PATH}/music:/music:ro
+      - ./data:/data
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/music:/music:ro
