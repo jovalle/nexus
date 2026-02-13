@@ -1,24 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   mytabs:
-    image: louislam/its-mytabs:1
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: mytabs
-    hostname: mytabs
-    # Runs as root internally
-    environment:
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/47777' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Dashboard
-      homepage.name: My Tabs
-      homepage.icon: browser
-      homepage.description: Browser Tab Manager
-      homepage.href: https://mytabs.${DOMAIN}
-      traefik.http.services.mytabs.loadbalancer.server.port: 47777
     deploy:
       resources:
         limits:
@@ -27,14 +18,29 @@ services:
         reservations:
           cpus: '0.05'
           memory: 64M
+    # Runs as root internally
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/47777' || exit 1" ]
+      timeout: 10s
+    hostname: mytabs
+    image: louislam/its-mytabs:1
+    labels:
+      homepage.description: Browser Tab Manager
+      homepage.group: Dashboard
+      homepage.href: https://mytabs.${DOMAIN:?DOMAIN not set}
+      homepage.icon: browser
+      homepage.name: My Tabs
+    networks:
+      - nexus
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
     volumes:
-      - ${DATA_PATH}/mytabs:/app/data
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/app/data

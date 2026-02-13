@@ -1,22 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   audiodeck:
-    image: casantosmu/audiodeck
+    cap_drop:
+      - ALL
     container_name: audiodeck
-    hostname: audiodeck
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:4747 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Media Streaming
-      homepage.name: Audiodeck
-      homepage.icon: si-audioboom
-      homepage.description: Audiobook streaming server
-      homepage.href: https://audiodeck.${DOMAIN}
-      traefik.http.services.audiodeck.loadbalancer.server.port: 4747
-    read_only: true
     deploy:
       resources:
         limits:
@@ -25,19 +14,28 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:4747 || exit 1" ]
+      timeout: 10s
+    hostname: audiodeck
+    image: casantosmu/audiodeck
+    labels:
+      homepage.description: Audiobook streaming server
+      homepage.group: Media Streaming
+      homepage.href: https://audiodeck.${DOMAIN:?DOMAIN not set}
+      homepage.icon: si-audioboom
+      homepage.name: Audiodeck
+    networks:
+      - nexus
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    user: "1000:1000"
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${MEDIA_PATH:?media path not defined}/music:/media/cdrom:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ${MEDIA_PATH:?MEDIA_PATH not set}/music:/media/cdrom:ro

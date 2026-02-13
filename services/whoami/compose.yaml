@@ -1,18 +1,9 @@
+networks:
+  nexus:
+    external: true
 services:
   whoami:
-    image: traefik/whoami
     container_name: whoami
-    hostname: whoami
-    user: "1000:1000"
-    healthcheck:
-      test: ["NONE"]
-    labels:
-      homepage.group: Utilities
-      homepage.name: Whoami
-      homepage.icon: traefik
-      homepage.description: Request Debug Service
-      homepage.href: https://whoami.${DOMAIN}
-      traefik.http.services.whoami.loadbalancer.server.port: 80
     deploy:
       resources:
         limits:
@@ -21,12 +12,19 @@ services:
         reservations:
           cpus: '0.01'
           memory: 8M
+    healthcheck:
+      test: [ "NONE" ]
+    hostname: whoami
+    image: traefik/whoami
+    labels:
+      homepage.description: Request Debug Service
+      homepage.group: Utilities
+      homepage.href: https://whoami.${DOMAIN:?DOMAIN not set}
+      homepage.icon: traefik
+      homepage.name: Whoami
+    networks:
+      - nexus
     restart: unless-stopped
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=8m
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"

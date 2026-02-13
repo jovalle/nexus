@@ -1,26 +1,14 @@
+networks:
+  nexus:
+    external: true
 services:
   wallos:
-    image: bellamy/wallos
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
     container_name: wallos
-    hostname: wallos
-    # wallos (PHP-based) requires www-data user internally
-    environment:
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Productivity
-      homepage.name: Wallos
-      homepage.icon: wallos
-      homepage.description: Subscription Tracker
-      homepage.href: https://wallos.${DOMAIN}
-      homepage.widget.type: wallos
-      homepage.widget.url: http://wallos:80
-      traefik.http.services.wallos.loadbalancer.server.port: 80
     deploy:
       resources:
         limits:
@@ -29,20 +17,30 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    # wallos (PHP-based) requires www-data user internally
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      timeout: 10s
+    hostname: wallos
+    image: bellamy/wallos
+    labels:
+      homepage.description: Subscription Tracker
+      homepage.group: Productivity
+      homepage.href: https://wallos.${DOMAIN:?DOMAIN not set}
+      homepage.icon: wallos
+      homepage.name: Wallos
+      homepage.widget.type: wallos
+      homepage.widget.url: http://wallos:80
+    networks:
+      - nexus
     restart: unless-stopped
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/wallos/db:/var/www/html/db
-      - ${DATA_PATH}/wallos/logos:/var/www/html/images/uploads/logos
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./db:/var/www/html/db
+      - ./logos:/var/www/html/images/uploads/logos

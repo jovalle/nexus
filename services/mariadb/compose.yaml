@@ -4,11 +4,11 @@ services:
     container_name: mariadb
     hostname: mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-nextcloud}
-      MYSQL_USER: ${MYSQL_USER:-nextcloud}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
-      TZ: ${TZ:-America/New_York}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD not set}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE not set}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER not set}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD not set}
+      TZ: ${TZ:?TZ not set}
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
       interval: 10s
@@ -20,7 +20,7 @@ services:
       homepage.name: MariaDB
       homepage.icon: mariadb
       homepage.description: MySQL-Compatible Database
-      traefik.enable: "false"
+      traefik.enable: false
     deploy:
       resources:
         limits:
@@ -44,10 +44,9 @@ services:
       - /tmp:rw,noexec,nosuid,size=256m
       - /run/mysqld:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/mariadb:/var/lib/mysql
+      - ./data:/var/lib/mysql
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

@@ -1,31 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   watchtower:
-    image: ghcr.io/jovalle/watchtower
+    cap_drop:
+      - ALL
     container_name: watchtower
-    hostname: watchtower
-    user: "1001:1001"
-    environment:
-      TZ: ${TZ:-America/New_York}
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: "86400"
-      WATCHTOWER_NOTIFICATIONS: shoutrrr
-      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
-      SESSION_SECRET: ${SESSION_SECRET}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9001/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Utilities
-      homepage.name: Watchtower
-      homepage.icon: watchtower
-      homepage.description: Container Update Monitor
-      homepage.href: https://watchtower.${DOMAIN}
-      traefik.enable: "false"
-    ports:
-      - 9001:9001
     deploy:
       resources:
         limits:
@@ -34,14 +14,41 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=32m
-    volumes:
-      - ${DATA_PATH}/watchtower:/data
+    environment:
+      IMDB_WATCHLISTS: ${WATCHTOWER_IMDB_WATCHLISTS:-}
+      PLEX_CLIENT_ID: ${WATCHTOWER_PLEX_CLIENT_ID:-watchtower-001}
+      PLEX_SERVER_URL: ${WATCHTOWER_PLEX_SERVER_URL:?WATCHTOWER_PLEX_SERVER_URL not set}
+      PLEX_TOKEN: ${WATCHTOWER_PLEX_TOKEN:?WATCHTOWER_PLEX_TOKEN not set}
+      PORT: ${WATCHTOWER_PORT:?WATCHTOWER_PORT not set}
+      SESSION_SECRET: ${WATCHTOWER_SESSION_SECRET:?WATCHTOWER_SESSION_SECRET not set}
+      TMDB_API_KEY: ${WATCHTOWER_TMDB_API_KEY:?WATCHTOWER_TMDB_API_KEY not set}
+      TRAKT_CLIENT_ID: ${WATCHTOWER_TRAKT_CLIENT_ID:?WATCHTOWER_TRAKT_CLIENT_ID not set}
+      TRAKT_CLIENT_SECRET: ${WATCHTOWER_TRAKT_CLIENT_SECRET:?WATCHTOWER_TRAKT_CLIENT_SECRET not set}
+      TRAKT_USERNAME: ${WATCHTOWER_TRAKT_USERNAME:-}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9001/ || exit 1" ]
+      timeout: 10s
+    hostname: watchtower
+    image: ghcr.io/jovalle/watchtower
+    labels:
+      homepage.description:
+      homepage.group: Media
+      homepage.href: https://watchtower.${DOMAIN:?DOMAIN not set}
+      homepage.icon: 'https://ik.imagekit.io/technis/w-cropped.png'
+      homepage.name: watchtower
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    ports:
+      - 9001:9001
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    user: "1001:1001"
+    volumes:
+      - ./data:/data

@@ -1,26 +1,17 @@
+networks:
+  nexus:
+    external: true
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: postgres
-    hostname: postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      PGDATA: /var/lib/postgresql/data/data
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    labels:
-      homepage.group: Databases
-      homepage.name: PostgreSQL
-      homepage.icon: postgres
-      homepage.description: Relational Database
-      traefik.enable: "false"
     deploy:
       resources:
         limits:
@@ -29,20 +20,32 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    environment:
+      PGDATA: /var/lib/postgresql/data/data
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB not set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER not set}" ]
+      timeout: 5s
+    hostname: postgres
+    image: pgvector/pgvector:pg16
+    labels:
+      homepage.description: Relational Database
+      homepage.group: Databases
+      homepage.icon: postgres
+      homepage.name: PostgreSQL
+      traefik.enable: false
+    networks:
+      - nexus
     restart: unless-stopped
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
     volumes:
-      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/var/lib/postgresql/data

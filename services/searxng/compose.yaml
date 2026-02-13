@@ -1,25 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   searxng:
-    image: searxng/searxng
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: searxng
-    hostname: searxng
-    environment:
-      SEARXNG_BASE_URL: https://search.${DOMAIN}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Utilities
-      homepage.name: SearXNG
-      homepage.icon: searxng
-      homepage.description: Privacy Search Engine
-      homepage.href: https://search.${DOMAIN}
-      homepage.widget.type: searxng
-      homepage.widget.url: http://searxng:8080
-      traefik.http.services.searxng.loadbalancer.server.port: 8080
     deploy:
       resources:
         limits:
@@ -28,22 +18,30 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    environment:
+      SEARXNG_BASE_URL: https://search.${DOMAIN:?DOMAIN not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1" ]
+      timeout: 10s
+    hostname: searxng
+    image: searxng/searxng
+    labels:
+      homepage.description: Privacy Search Engine
+      homepage.group: Utilities
+      homepage.href: https://search.${DOMAIN:?DOMAIN not set}
+      homepage.icon: searxng
+      homepage.name: SearXNG
+      homepage.widget.type: searxng
+      homepage.widget.url: http://searxng:8080
+    networks:
+      - nexus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
     volumes:
-      - ${DATA_PATH}/searxng:/etc/searxng
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/etc/searxng

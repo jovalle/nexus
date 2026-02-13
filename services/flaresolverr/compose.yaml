@@ -4,10 +4,10 @@ services:
     container_name: flaresolverr
     hostname: flaresolverr
     environment:
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_HTML: ${LOG_HTML:-false}
-      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:-none}
-      TZ: ${TZ:-America/New_York}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL not set}
+      LOG_HTML: ${LOG_HTML:?LOG_HTML not set}
+      CAPTCHA_SOLVER: ${CAPTCHA_SOLVER:?CAPTCHA_SOLVER not set}
+      TZ: ${TZ:?TZ not set}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8191/health || exit 1"]
       interval: 30s
@@ -15,13 +15,13 @@ services:
       retries: 3
       start_period: 60s
     labels:
-      homepage.group: Downloaders
+      homepage.group: Tools
       homepage.name: FlareSolverr
       homepage.icon: flaresolverr
-      homepage.description: Cloudflare Bypass Proxy
-      homepage.href: https://flaresolverr.${DOMAIN}
+      homepage.description: Bypass Proxy
+      homepage.href: https://flaresolverr.${DOMAIN:?DOMAIN not set}
+      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.flaresolverr.middlewares: basic-auth@file
-      traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
     deploy:
       resources:
         limits:
@@ -33,13 +33,14 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_add:
+      - SYS_ADMIN
     cap_drop:
       - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

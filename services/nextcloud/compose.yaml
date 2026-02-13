@@ -1,38 +1,21 @@
+networks:
+  nexus:
+    external: true
 services:
   nextcloud:
-    image: nextcloud
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: nextcloud
-    hostname: nextcloud
     depends_on:
-      - postgres
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
-      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
-      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-}
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-}
-      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${DOMAIN}
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80/status.php || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 180s
-    labels:
-      homepage.group: Documents
-      homepage.name: Nextcloud
-      homepage.icon: nextcloud
-      homepage.description: Personal Cloud Storage
-      homepage.href: https://nextcloud.${DOMAIN}
-      homepage.widget.type: nextcloud
-      homepage.widget.url: http://nextcloud
-      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:-admin}
-      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:-}
-      traefik.http.services.nextcloud.loadbalancer.server.port: 80
-    ports:
-      - 444:80
+      postgres:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -41,22 +24,40 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    environment:
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?NEXTCLOUD_ADMIN_PASSWORD not set}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?NEXTCLOUD_ADMIN_USER not set}
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${DOMAIN:?DOMAIN not set}
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:?NEXTCLOUD_DB_NAME not set}
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?NEXTCLOUD_DB_PASSWORD not set}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:?NEXTCLOUD_DB_USER not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 180s
+      test: [ "CMD-SHELL", "curl -f http://localhost:80/status.php || exit 1" ]
+      timeout: 10s
+    hostname: nextcloud
+    image: nextcloud
+    labels:
+      homepage.description: Personal Cloud Storage
+      homepage.group: Documents
+      homepage.href: https://nextcloud.${DOMAIN:?DOMAIN not set}
+      homepage.icon: nextcloud
+      homepage.name: Nextcloud
+      homepage.widget.password: ${NEXTCLOUD_ADMIN_PASSWORD:?NEXTCLOUD_ADMIN_PASSWORD not set}
+      homepage.widget.type: nextcloud
+      homepage.widget.url: http://nextcloud
+      homepage.widget.username: ${NEXTCLOUD_ADMIN_USER:?NEXTCLOUD_ADMIN_USER not set}
+    networks:
+      - nexus
+    ports:
+      - 444:80
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
     volumes:
-      - ${DATA_PATH}/nextcloud:/var/www/html
-      - ${NEXTCLOUD_DATA_PATH}:/var/www/html/data
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/var/www/html/data
+      - ./web:/var/www/html

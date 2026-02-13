@@ -1,23 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   omni-tools:
-    image: iib0011/omni-tools
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: omni-tools
-    hostname: omni-tools
-    environment:
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Utilities
-      homepage.name: Omni Tools
-      homepage.icon: toolbox
-      homepage.description: Developer Tools Collection
-      homepage.href: https://omni.${DOMAIN}
-      traefik.http.services.omni-tools.loadbalancer.server.port: 80
     deploy:
       resources:
         limits:
@@ -26,12 +18,26 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      timeout: 10s
+    hostname: omni-tools
+    image: iib0011/omni-tools
+    labels:
+      homepage.description: Developer Tools Collection
+      homepage.group: Utilities
+      homepage.href: https://omni.${DOMAIN:?DOMAIN not set}
+      homepage.icon: toolbox
+      homepage.name: Omni Tools
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m

@@ -4,7 +4,7 @@ services:
     container_name: boxarr
     hostname: boxarr
     environment:
-      TZ: ${TZ:-America/New_York}
+      TZ: ${TZ:?TZ not set}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8888/ || exit 1"]
       interval: 30s
@@ -16,8 +16,7 @@ services:
       homepage.name: Boxarr
       homepage.icon: boxarr
       homepage.description: Box Office Tracking for Radarr
-      homepage.href: https://boxarr.${DOMAIN}
-      traefik.http.services.boxarr.loadbalancer.server.port: 8888
+      homepage.href: https://boxarr.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -33,11 +32,11 @@ services:
       - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/boxarr:/config
+      - ./data:/config
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

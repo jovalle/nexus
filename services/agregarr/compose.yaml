@@ -1,22 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   agregarr:
-    image: agregarr/agregarr
+    cap_drop:
+      - ALL
     container_name: agregarr
-    hostname: agregarr
-    user: "1000:1000"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:7171 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Media Automation
-      homepage.name: Agregarr
-      homepage.icon: agregarr
-      homepage.description: Media Aggregation Tool
-      homepage.href: https://agregarr.${DOMAIN}
-      traefik.http.services.agregarr.loadbalancer.server.port: 7171
     deploy:
       resources:
         limits:
@@ -25,14 +14,27 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    volumes:
-      - ${DATA_PATH}/agregarr:/app/config
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:7171 || exit 1" ]
+      timeout: 10s
+    hostname: agregarr
+    image: agregarr/agregarr
+    labels:
+      homepage.description: Media Aggregation Tool
+      homepage.group: Media Automation
+      homepage.href: https://agregarr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: agregarr
+      homepage.name: Agregarr
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
+    volumes:
+      - ./data:/app/config

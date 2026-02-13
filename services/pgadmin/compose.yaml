@@ -1,28 +1,12 @@
+networks:
+  nexus:
+    external: true
 services:
   pgadmin:
-    image: dpage/pgadmin4
     container_name: pgadmin
-    hostname: pgadmin
-    # pgadmin4 runs as uid 5050 internally
-    user: "5050:5050"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-}
-      PGADMIN_CONFIG_SERVER_MODE: "True"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/misc/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Database
-      homepage.name: pgAdmin
-      homepage.icon: pgadmin
-      homepage.description: PostgreSQL Admin
-      homepage.href: https://pgadmin.${DOMAIN}
-      traefik.http.services.pgadmin.loadbalancer.server.port: 80
+    depends_on:
+      postgres:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -31,16 +15,33 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    environment:
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?PGADMIN_DEFAULT_EMAIL not set}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80/misc/ping || exit 1" ]
+      timeout: 10s
+    hostname: pgadmin
+    image: dpage/pgadmin4
+    labels:
+      homepage.description: PostgreSQL Admin
+      homepage.group: Database
+      homepage.href: https://pgadmin.${DOMAIN:?DOMAIN not set}
+      homepage.icon: pgadmin
+      homepage.name: pgAdmin
+    networks:
+      - nexus
     restart: unless-stopped
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m,uid=5050,gid=5050
       - /var/lib/pgadmin/sessions:rw,noexec,nosuid,size=64m,uid=5050,gid=5050
+    # pgadmin4 runs as uid 5050 internally
+    user: "5050:5050"
     volumes:
-      - ${DATA_PATH}/pgadmin:/var/lib/pgadmin
-      - ${DATA_PATH}/pgadmin/servers.json:/pgadmin4/servers.json:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/var/lib/pgadmin
+      - ./data/servers.json:/pgadmin4/servers.json:ro

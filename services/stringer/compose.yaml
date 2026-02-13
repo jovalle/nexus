@@ -1,31 +1,16 @@
+networks:
+  nexus:
+    external: true
 services:
   stringer:
-    image: stringerrss/stringer
+    cap_drop:
+      - ALL
     container_name: stringer
-    hostname: stringer
     # stringer image uses internal 'stringer' user
     depends_on:
-      - postgres
-    environment:
-      DATABASE_URL: postgres://stringer:${STRINGER_DB_PASSWORD:-}@postgres/stringer?sslmode=disable
-      SECRET_KEY_BASE: ${STRINGER_SECRET_KEY_BASE:-}
-      ENCRYPTION_PRIMARY_KEY: ${STRINGER_ENCRYPTION_PRIMARY_KEY:-}
-      ENCRYPTION_DETERMINISTIC_KEY: ${STRINGER_ENCRYPTION_DETERMINISTIC_KEY:-}
-      ENCRYPTION_KEY_DERIVATION_SALT: ${STRINGER_ENCRYPTION_KEY_DERIVATION_SALT:-}
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Productivity
-      homepage.name: Stringer
-      homepage.icon: stringer
-      homepage.description: RSS Reader
-      homepage.href: https://stringer.${DOMAIN}
-      traefik.http.services.stringer.loadbalancer.server.port: 8080
+      postgres:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -34,17 +19,32 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    environment:
+      DATABASE_URL: postgres://stringer:${STRINGER_DB_PASSWORD:?STRINGER_DB_PASSWORD not set}@postgres/stringer?sslmode=disable
+      ENCRYPTION_DETERMINISTIC_KEY: ${STRINGER_ENCRYPTION_DETERMINISTIC_KEY:?STRINGER_ENCRYPTION_DETERMINISTIC_KEY not set}
+      ENCRYPTION_KEY_DERIVATION_SALT: ${STRINGER_ENCRYPTION_KEY_DERIVATION_SALT:?STRINGER_ENCRYPTION_KEY_DERIVATION_SALT not set}
+      ENCRYPTION_PRIMARY_KEY: ${STRINGER_ENCRYPTION_PRIMARY_KEY:?STRINGER_ENCRYPTION_PRIMARY_KEY not set}
+      SECRET_KEY_BASE: ${STRINGER_SECRET_KEY_BASE:?STRINGER_SECRET_KEY_BASE not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/ || exit 1" ]
+      timeout: 10s
+    hostname: stringer
+    image: stringerrss/stringer
+    labels:
+      homepage.description: RSS Reader
+      homepage.group: Productivity
+      homepage.href: https://stringer.${DOMAIN:?DOMAIN not set}
+      homepage.icon: stringer
+      homepage.name: Stringer
+    networks:
+      - nexus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
       - /app/log:rw,noexec,nosuid,size=16m
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true

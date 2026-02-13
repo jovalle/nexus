@@ -4,10 +4,10 @@ services:
     container_name: duplicati
     hostname: duplicati
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
-      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY}
+      PUID: ${PUID:?PUID not set}
+      PGID: ${PGID:?PGID not set}
+      TZ: ${TZ:?TZ not set}
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY:?DUPLICATI_ENCRYPTION_KEY not set}
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8200 || exit 1"]
       interval: 30s
@@ -19,8 +19,7 @@ services:
       homepage.name: Duplicati
       homepage.icon: duplicati
       homepage.description: Backup Solution
-      homepage.href: https://duplicati.${DOMAIN}
-      traefik.http.services.duplicati.loadbalancer.server.port: 8200
+      homepage.href: https://duplicati.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -30,20 +29,23 @@ services:
           cpus: '0.25'
           memory: 256M
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
       - SETGID
       - SETUID
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
     volumes:
-      - ${DATA_PATH}/duplicati/config:/config
-      - ${DATA_PATH}:/source:ro
-      - ${BACKUP_PATH}:/backups
+      - ./config:/config
+      - ./source:/source:ro
+      - ${BACKUP_PATH:?BACKUP_PATH not set}:/backups
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

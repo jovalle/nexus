@@ -5,8 +5,8 @@ services:
     hostname: homarr
     # Requires docker.sock for container stats
     environment:
-      TZ: ${TZ:-America/New_York}
-      SECRET_ENCRYPTION_KEY: ${HOMARR_ENC_KEY}
+      TZ: ${TZ:?TZ not set}
+      SECRET_ENCRYPTION_KEY: ${HOMARR_ENC_KEY:?HOMARR_ENC_KEY not set}
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://homarr:3000 || exit 1"]
       interval: 30s
@@ -18,8 +18,7 @@ services:
       homepage.name: Homarr
       homepage.icon: homarr
       homepage.description: Application Dashboard
-      homepage.href: https://homarr.${DOMAIN}
-      traefik.http.services.homarr.loadbalancer.server.port: 3000
+      homepage.href: https://homarr.${DOMAIN:?DOMAIN not set}
     ports:
       - 7575:3000
     deploy:
@@ -38,11 +37,10 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/homarr:/appdata
+      - ./data:/appdata
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

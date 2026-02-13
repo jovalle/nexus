@@ -1,33 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   miniflux:
-    image: ghcr.io/miniflux/miniflux
+    cap_drop:
+      - ALL
     container_name: miniflux
-    hostname: miniflux
-    user: "1000:1000"
     depends_on:
-      - postgres
-    environment:
-      DATABASE_URL: postgres://${MINIFLUX_DB_USER:-miniflux}:${MINIFLUX_DB_PASSWORD:-}@postgres/miniflux?sslmode=disable
-      RUN_MIGRATIONS: "1"
-      CREATE_ADMIN: "1"
-      ADMIN_USERNAME: ${MINIFLUX_ADMIN_USER:-admin}
-      ADMIN_PASSWORD: ${MINIFLUX_ADMIN_PASSWORD:-}
-    healthcheck:
-      test: ["CMD-SHELL", "/usr/bin/miniflux -healthcheck auto >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Productivity
-      homepage.name: Miniflux
-      homepage.icon: miniflux
-      homepage.description: RSS Reader
-      homepage.href: https://miniflux.${DOMAIN}
-      homepage.widget.type: miniflux
-      homepage.widget.url: http://miniflux:8080
-      homepage.widget.key: ${MINIFLUX_API_KEY:-}
-      traefik.http.services.miniflux.loadbalancer.server.port: 8080
+      postgres:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -36,17 +18,35 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    environment:
+      ADMIN_PASSWORD: ${MINIFLUX_ADMIN_PASSWORD:?MINIFLUX_ADMIN_PASSWORD not set}
+      ADMIN_USERNAME: ${MINIFLUX_ADMIN_USER:?MINIFLUX_ADMIN_USER not set}
+      CREATE_ADMIN: "1"
+      DATABASE_URL: postgres://${MINIFLUX_DB_USER:?MINIFLUX_DB_USER not set}:${MINIFLUX_DB_PASSWORD:?MINIFLUX_DB_PASSWORD not set}@postgres/miniflux?sslmode=disable
+      RUN_MIGRATIONS: "1"
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "/usr/bin/miniflux -healthcheck auto >/dev/null 2>&1 || exit 1" ]
+      timeout: 10s
+    hostname: miniflux
+    image: ghcr.io/miniflux/miniflux
+    labels:
+      homepage.description: RSS Reader
+      homepage.group: Productivity
+      homepage.href: https://miniflux.${DOMAIN:?DOMAIN not set}
+      homepage.icon: miniflux
+      homepage.name: Miniflux
+      homepage.widget.key: ${MINIFLUX_API_KEY:?MINIFLUX_API_KEY not set}
+      homepage.widget.type: miniflux
+      homepage.widget.url: http://miniflux:8080
+    networks:
+      - nexus
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"

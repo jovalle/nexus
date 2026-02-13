@@ -1,28 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   trala:
-    image: ghcr.io/dannybouwers/trala
+    cap_drop:
+      - ALL
     container_name: trala
-    hostname: trala
-    user: "1000:1000"
-    environment:
-      LOG_LEVEL: info
-      REFRESH_INTERVAL_SECONDS: "30"
-      SEARCH_ENGINE_URL: "https://duckduckgo.com/?q:"
-      TRAEFIK_API_HOST: http://traefik:8080
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Dashboard
-      homepage.name: Trala
-      homepage.icon: traefik
-      homepage.description: Traefik Service Discovery Dashboard
-      homepage.href: https://trala.${DOMAIN}
-      traefik.http.services.trala.loadbalancer.server.port: 8080
-    read_only: true
     deploy:
       resources:
         limits:
@@ -31,18 +14,33 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
+    environment:
+      LOG_LEVEL: info
+      REFRESH_INTERVAL_SECONDS: "30"
+      SEARCH_ENGINE_URL: "https://duckduckgo.com/?q:"
+      TRAEFIK_API_HOST: http://traefik:8080
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1" ]
+      timeout: 10s
+    hostname: trala
+    image: ghcr.io/dannybouwers/trala
+    labels:
+      homepage.description: Traefik Service Discovery Dashboard
+      homepage.group: Dashboard
+      homepage.href: https://trala.${DOMAIN:?DOMAIN not set}
+      homepage.icon: traefik
+      homepage.name: Trala
+    networks:
+      - nexus
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/trala:/config:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/config:ro

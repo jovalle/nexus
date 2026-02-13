@@ -1,21 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   redis:
-    image: redis:7-alpine
-    container_name: redis
-    hostname: redis
+    cap_add:
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     command: redis-server --save 60 1 --loglevel warning
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    labels:
-      homepage.group: Databases
-      homepage.name: Redis
-      homepage.icon: redis
-      homepage.description: In-Memory Data Store
-      traefik.enable: "false"
+    container_name: redis
     deploy:
       resources:
         limits:
@@ -24,22 +18,27 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    healthcheck:
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      test: [ "CMD", "redis-cli", "ping" ]
+      timeout: 5s
+    hostname: redis
+    image: redis:7-alpine
+    labels:
+      homepage.description: In-Memory Data Store
+      homepage.group: Databases
+      homepage.icon: redis
+      homepage.name: Redis
+      traefik.enable: false
+    networks:
+      - nexus
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - SETGID
-      - SETUID
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/redis:/data
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./data:/data

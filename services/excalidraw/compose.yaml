@@ -14,8 +14,7 @@ services:
       homepage.name: Excalidraw
       homepage.icon: excalidraw
       homepage.description: Virtual Whiteboard
-      homepage.href: https://excalidraw.${DOMAIN}
-      traefik.http.services.excalidraw.loadbalancer.server.port: 80
+      homepage.href: https://excalidraw.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -25,11 +24,18 @@ services:
           cpus: '0.1'
           memory: 64M
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

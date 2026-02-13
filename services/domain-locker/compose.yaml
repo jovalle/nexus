@@ -1,29 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   domain-locker:
-    image: lissy93/domain-locker
+    cap_drop:
+      - ALL
     container_name: domain-locker
-    hostname: domain-locker
-    # Uses appuser internally
-    environment:
-      TZ: ${TZ:-America/New_York}
-      DL_PG_HOST: postgres
-      DL_PG_PORT: "5432"
-      DL_PG_USER: ${DOMAIN_LOCKER_DB_USER:-domain_locker}
-      DL_PG_NAME: ${DOMAIN_LOCKER_DB_NAME:-domain_locker}
-      DL_PG_PASSWORD: ${DOMAIN_LOCKER_DB_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Utilities
-      homepage.name: Domain Locker
-      homepage.icon: cloudflare
-      homepage.description: Domain Management
-      homepage.href: https://domains.${DOMAIN}
-      traefik.http.services.domain-locker.loadbalancer.server.port: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -32,12 +18,32 @@ services:
         reservations:
           cpus: '0.05'
           memory: 64M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      DL_PG_HOST: postgres
+      DL_PG_NAME: ${DOMAIN_LOCKER_DB_NAME:?DOMAIN_LOCKER_DB_NAME not set}
+      DL_PG_PASSWORD: ${DOMAIN_LOCKER_DB_PASSWORD:?DOMAIN_LOCKER_DB_PASSWORD not set}
+      DL_PG_PORT: "5432"
+      DL_PG_USER: ${DOMAIN_LOCKER_DB_USER:?DOMAIN_LOCKER_DB_USER not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1" ]
+      timeout: 10s
+    hostname: domain-locker
+    image: lissy93/domain-locker
+    labels:
+      homepage.description: Domain Management
+      homepage.group: Utilities
+      homepage.href: https://domains.${DOMAIN:?DOMAIN not set}
+      homepage.icon: cloudflare
+      homepage.name: Domain Locker
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
