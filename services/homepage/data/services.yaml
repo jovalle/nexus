@@ -1,0 +1,34 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/latest/configs/services
+
+- Core:
+    # - Proxmox:
+    #     description: Hypervisor
+    #     href: "https://ms.techn.is:8006"
+    #     icon: proxmox.png
+    #     widget:
+    #       password: "0bed1845-9131-4e46-a710-93eb3f0aa174"
+    #       type: proxmox
+    #       url: "https://ms.techn.is:8006"
+    #       username: "root@pam!homepage"
+    - TrueNAS:
+        description: Storage Manager
+        href: "https://truenas.techn.is"
+        icon: truenas.png
+        widget:
+          enablePools: true
+          fields: '["load", "uptime", "alerts"]'
+          password: "T3chnis!"
+          type: truenas
+          url: "https://truenas.techn.is"
+          username: "root"
+    # - Unifi:
+    #     description: Unifi Dashboard
+    #     href: "https://192.168.31.1"
+    #     icon: unifi.png
+    #     widget:
+    #       password: "Ashen-Uneasy-Calamari7-Handcart"
+    #       type: unifi
+    #       url: "https://192.168.31.1"
+    #       username: "readonly_user"

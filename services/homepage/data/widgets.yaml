@@ -1,0 +1,22 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/latest/configs/service-widgets
+
+- resources:
+    cpu: true
+    memory: true
+    disk: /
+
+- search:
+    provider: duckduckgo
+    target: _blank
+
+- openmeteo:
+    label: New York
+    latitude: 40.840959804106845
+    longitude: -73.93984463519216
+    timezone: America/New_York
+    units: imperial
+    cache: 5
+    format:
+      maximumFractionDigits: 1

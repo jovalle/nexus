@@ -1,0 +1,54 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/latest/configs/settings
+# Icons sourced from: https://pictogrammers.com/library/mdi/
+theme: dark
+disableCollapse: true
+layout:
+  Apps:
+    icon: mdi-apps
+    style: row
+    columns: 4
+  AI:
+    icon: mdi-robot
+    style: row
+    columns: 4
+  Core:
+    icon: mdi-server-network
+    style: row
+    columns: 4
+  Data:
+    icon: mdi-database
+    useEqualHeights: true
+    style: row
+    columns: 4
+  Network:
+    icon: mdi-lan
+    style: row
+    columns: 4
+  Server:
+    icon: mdi-server-network
+    style: row
+    columns: 3
+  Media:
+    icon: mdi-multimedia
+    useEqualHeights: true
+    style: row
+    columns: 4
+  Stargate:
+    icon: mdi-space-station
+    style: column
+  Log:
+    icon: mdi-post-outline
+    style: column
+  Database:
+    icon: mdi-database
+    style: column
+  Tools:
+    icon: mdi-tools
+    style: columns
+  Security:
+    icon: mdi-security
+    style: columns
+
+

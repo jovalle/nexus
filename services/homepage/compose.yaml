@@ -5,9 +5,7 @@ services:
     hostname: homepage
     # Requires root for docker.sock access
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN},dash.${DOMAIN}
-      HOMEPAGE_FILE_TAILSCALE_KEY: /app/config/secrets/tailscale_token
-      HOMEPAGE_VAR_TAILSCALE_DEVICE_ID: ${TAILSCALE_DEVICE_ID:?tailscale device id not defined}
+      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN:?DOMAIN not set},dash.${DOMAIN:?DOMAIN not set}
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000 || exit 1"]
       interval: 30s
@@ -19,8 +17,7 @@ services:
       homepage.name: Homepage
       homepage.icon: homepage
       homepage.description: Application Dashboard
-      homepage.href: https://dash.${DOMAIN}
-      traefik.http.services.homepage.loadbalancer.server.port: 3000
+      homepage.href: https://dash.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -37,11 +34,10 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/homepage:/app/config
+      - ./data:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true
