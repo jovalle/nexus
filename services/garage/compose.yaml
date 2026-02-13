@@ -1,22 +1,11 @@
+networks:
+  nexus:
+    external: true
 services:
   garage:
-    image: dxflrs/garage:v2.1.0
+    cap_drop:
+      - ALL
     container_name: garage
-    hostname: garage
-    environment:
-      TZ: ${TZ:-America/New_York}
-    healthcheck:
-      test: ["NONE"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Storage
-      homepage.name: Garage
-      homepage.icon: minio
-      homepage.description: S3-compatible Object Storage
-      traefik.enable: "false"
     deploy:
       resources:
         limits:
@@ -25,16 +14,31 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=128m
-    volumes:
-      - ${DATA_PATH}/garage/config/garage.toml:/etc/garage.toml:ro
-      - ${DATA_PATH}/garage/meta:/var/lib/garage/meta
-      - ${DATA_PATH}/garage/data:/var/lib/garage/data
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "NONE" ]
+      timeout: 10s
+    hostname: garage
+    image: dxflrs/garage:v2.1.0
+    labels:
+      homepage.description: S3-compatible Object Storage
+      homepage.group: Storage
+      homepage.icon: minio
+      homepage.name: Garage
+      traefik.enable: false
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
+    volumes:
+      - ./config/garage.toml:/etc/garage.toml:ro
+      - ./meta:/var/lib/garage/meta
+      - ./data:/var/lib/garage/data

@@ -4,8 +4,8 @@ services:
     container_name: filebrowser
     hostname: filebrowser
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
+      PUID: ${PUID:?PUID not set}
+      PGID: ${PGID:?PGID not set}
       FB_NOAUTH: "false"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1"]
@@ -18,9 +18,9 @@ services:
       homepage.name: File Browser
       homepage.icon: filebrowser
       homepage.description: Web File Manager
-      homepage.href: https://files.${DOMAIN}
+      homepage.href: https://files.${DOMAIN:?DOMAIN not set}
+      traefik.http.routers.filebrowser.rule: Host(`filebrowser.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.filebrowser.middlewares: basic-auth@file
-      traefik.http.services.filebrowser.loadbalancer.server.port: 80
     deploy:
       resources:
         limits:
@@ -38,12 +38,11 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/filebrowser/filebrowser.db:/database/filebrowser.db
-      - ${DATA_PATH}/filebrowser/settings.json:/config/settings.json
-      - ${DATA_PATH}:/srv
+      - ./data/filebrowser.db:/database/filebrowser.db
+      - ./settings.json:/config/settings.json:ro
+      - ${DATA_PATH:?DATA_PATH not set}:/srv
     networks:
       - nexus
-
 networks:
   nexus:
     external: true
