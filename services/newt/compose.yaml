@@ -1,26 +1,13 @@
+networks:
+  nexus:
+    external: true
 services:
   newt:
-    image: fosrl/newt
     container_name: newt
-    hostname: newt
-    # Requires docker.sock for container discovery
-    environment:
-      TZ: ${TZ:-America/New_York}
-      PANGOLIN_ENDPOINT: ${PANGOLIN_ENDPOINT}
-      NEWT_ID: ${NEWT_ID}
-      NEWT_SECRET: ${NEWT_SECRET}
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -x newt || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Utilities
-      homepage.name: Newt
-      homepage.icon: docker
-      homepage.description: Container Networking
-      traefik.enable: "false"
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
@@ -29,14 +16,32 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
+    # Requires docker.sock for container discovery
+    environment:
+      NEWT_ID: ${NEWT_ID:?NEWT_ID not set}
+      NEWT_SECRET: ${NEWT_SECRET:?NEWT_SECRET not set}
+      PANGOLIN_ENDPOINT: ${PANGOLIN_ENDPOINT:?PANGOLIN_ENDPOINT not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "pgrep -x newt || exit 1" ]
+      timeout: 10s
+    hostname: newt
+    image: fosrl/newt
+    labels:
+      homepage.description: Container Networking
+      homepage.group: Utilities
+      homepage.icon: docker
+      homepage.name: Newt
+      traefik.enable: false
+    networks:
+      - nexus
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true

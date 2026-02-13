@@ -4,21 +4,21 @@ services:
     container_name: gluetun
     hostname: gluetun
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-America/New_York}
+      PUID: ${PUID:?PUID not set}
+      PGID: ${PGID:?PGID not set}
+      TZ: ${TZ:?TZ not set}
       FIREWALL_INPUT_PORTS: 10095
-      GLUETUN_API_KEY: ${GLUETUN_API_KEY:?gluetun api key not defined}
+      GLUETUN_API_KEY: ${GLUETUN_API_KEY:?GLUETUN_API_KEY not set}
       HTTPPROXY_STEALTH: "false"
       HTTP_CONTROL_SERVER_LOG: "false"
       PUBLICIP_FILE: /gluetun/ip
       VPN_SERVICE_PROVIDER: custom
       VPN_TYPE: wireguard
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:?address not defined}
-      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:?endpoint ip not defined}
-      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:-51820}
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:?private key not defined}
-      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:?public key not defined}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:?WIREGUARD_ADDRESSES not set}
+      WIREGUARD_ENDPOINT_IP: ${WIREGUARD_ENDPOINT_IP:?WIREGUARD_ENDPOINT_IP not set}
+      WIREGUARD_ENDPOINT_PORT: ${WIREGUARD_ENDPOINT_PORT:?WIREGUARD_ENDPOINT_PORT not set}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:?WIREGUARD_PRIVATE_KEY not set}
+      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY:?WIREGUARD_PUBLIC_KEY not set}
     healthcheck:
       test: ["CMD", "sh", "-c", "wget -q -O /dev/null --header=\"X-API-Key: $${GLUETUN_API_KEY}\" http://127.0.0.1:8000/v1/publicip/ip"]
       interval: 30s
@@ -32,9 +32,9 @@ services:
       homepage.description: VPN client for containers
       homepage.widget.type: gluetun
       homepage.widget.url: http://gluetun:8000
-      homepage.widget.key: ${GLUETUN_API_KEY:-}
+      homepage.widget.key: ${GLUETUN_API_KEY:?GLUETUN_API_KEY not set}
       homepage.widget.fields: '["public_ip", "region", "country"]'
-      traefik.enable: "false"
+      traefik.enable: false
     ports:
       - 6881:6881
       - 6881:6881/udp
@@ -59,10 +59,9 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ${DATA_PATH}/gluetun:/gluetun
+      - ./data:/gluetun
     networks:
       - nexus
-
 networks:
   nexus:
     external: true
