@@ -20,16 +20,180 @@ backups/
 # archive (keep structure, ignore contents)
 archive/*
 
+# ============================================
+# Service data patterns (runtime, not config)
+# ============================================
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.rdb
+*.lmdb
+
+# Logs
+*.log
+*.log.*
+logs/
+log/
+
+# Caches
+cache/
+.cache/
+tmp/
+*-cache/
+
+# Backups (runtime)
+backup/
+Backups/
+
+# Runtime state
+*.pid
+*.lock
+.locks/
+socket/
+sessions/
+*.sock
+
+# Downloaded/generated content
+MediaCover/
+posters/
+screenshots/
+thumbnails/
+
+# Sensitive data
+letsencrypt/
+secrets/
+auth/
+
+# Database server data dirs
+**/mysql/
+**/postgres/data/
+wal/
+chunks/
+tsdb-*/
+binlog.*
+ib_*
+aria_log*
+pg_*/
+
+# Arr apps runtime
+Sentry/
+asp/
+*.idx
+
+# Shell/OS artifacts
+.ash_history
+.bash_history
+
+# Service-specific runtime dirs (flattened)
+services/*/work/
+services/*/uploads/
+services/*/upload/
+services/*/consume/
+services/*/export/
+services/*/meta/
+services/*/model-cache/
+services/*/paperless-data/
+services/*/pdfs/
+
+# Service-specific runtime data/ dirs (not config)
+services/prometheus/data/
+services/syncthing/data/
+services/garage/data/
+services/homehub/data/
+services/pulsarr/data/
+services/immich/data/
+
+# Grafana runtime data (plugins downloaded at runtime)
+services/grafana/data/data/
+services/grafana/data/plugins/
+
+# Services with data/ as whole app state (ignored)
+services/agregarr/data/
+services/authelia/data/
+services/bazarr/data/
+services/beszel/data/
+services/boxarr/data/
+services/dockhand/data/
+services/excalidraw/data/
+services/flaresolverr/data/
+services/gluetun/data/
+services/golink/data/
+services/homarr/data/
+services/jellyfin/data/
+services/kromgo/data/
+services/lidarr/data/
+services/loggifly/data/
+services/loki/data/
+services/mariadb/data/
+services/meilisearch/data/
+services/music-assistant/data/
+services/mytabs/data/
+services/navidrome/data/
+services/nextcloud/data/
+services/nextcloud/web/
+services/orb/data/
+services/overseerr/data/
+services/plex/data/
+services/postgres/data/
+services/profilarr/data/
+services/prowlarr/data/
+services/qbittorrent/data/
+services/radarr/data/
+services/redis/data/
+services/sabnzbd/data/
+services/searxng/data/
+services/sonarr/data/
+services/stringer/data/
+services/tailscale/data/
+services/tautulli/data/
+services/tracearr/data/
+services/trala/data/
+services/uptime-kuma/data/
+services/valkey/data/
+services/watchtower/data/
+services/wizarr/database/
+services/wizarr/wizard/
+services/wizarr/wizard_steps/
+services/wallos/db/
+services/wallos/logos/
+services/wyoming/data/
+
+# Syncthing certs and keys (sensitive)
+services/syncthing/*.pem
+services/syncthing/index-*/
+
+# Duplicati runtime
+services/duplicati/.aspnet/
+services/duplicati/control_dir_v2/
+services/duplicati/*.txt
+
+# Additional runtime ignores
+services/paperless/media/
+services/pgadmin/data/
+services/promtail/data/
+services/pulse/data/
+services/uptime-kuma/data/
+
+# Syncthing config contains sensitive device keys
+services/syncthing/config/
+services/duplicati/config/
+services/ntfy/cache/
+services/ntfy/config/server.yml
+
 # misc sensitive file types
 *.bak
-*.sql
-*.sqlite
-*.log
-*.pem
-*.key
-*.crt
 *.p12
 *.pfx
 
 # editor artifacts
 * copy.yaml
+* copy
+services/beszel-agent/data/fingerprint
+services/adguard/conf/AdGuardHome.yaml
+services/adguard-sync/sync/adguardhome-sync.yaml
