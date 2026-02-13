@@ -27,6 +27,16 @@ ts := `date +%Y%m%d-%H%M%S`
 _l := "{" + "{"
 _r := "}" + "}"
 
+# ANSI color codes for output
+RED   := `printf '\033[31m'`
+GREEN := `printf '\033[32m'`
+YLW   := `printf '\033[33m'`
+DIM   := `printf '\033[2m'`
+RST   := `printf '\033[0m'`
+
+# Shared helpers (source in bash recipes)
+helpers := scripts_dir / "helpers.sh"
+
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  DEFAULT / HELP                                                            ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
@@ -44,55 +54,72 @@ _r := "}" + "}"
 start *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
 
-    # --- Detect stale containers (hash-prefixed names) ---
-    mapfile -t stale < <(
-        docker ps -a --format '{{ _l }}.Names{{ _r }}' \
-        | grep -E '^[0-9a-f]{12}_' || true
-    )
+    # --- Detect stale/orphan containers (single docker call) ---
+    tmpps=$(mktemp)
+    docker ps -a --format '{{ _l }}.Names{{ _r }}|{{ _l }}.State{{ _r }}|{{ _l }}.Status{{ _r }}|{{ _l }}.Label "com.docker.compose.project"{{ _r }}' > "$tmpps" 2>/dev/null &
+    spin $! "Scanning for stale containers…"
 
-    if (( ${#stale[@]} > 0 )); then
+    declare -A _DS=() _DP=()
+    while IFS='|' read -r name state status project; do
+        [[ -z "$name" ]] && continue
+        _DS["$name"]="$state"
+        _DP["$name"]="$project"
+    done < "$tmpps"
+    rm -f "$tmpps"
+
+    mapfile -t expected_services < <(docker compose config --services 2>/dev/null || true)
+    conflicts=()
+    for name in "${!_DS[@]}"; do
+        [[ "$name" =~ ^[0-9a-f]{12}_ ]] && conflicts+=("$name")
+    done
+    for svc in "${expected_services[@]}"; do
+        [[ -z "$svc" ]] && continue
+        [[ -z "${_DS[$svc]:-}" ]] && continue
+        local_project="${_DP[$svc]:-}"
+        if [[ -z "$local_project" || "$local_project" != "nexus" ]]; then
+            conflicts+=("$svc")
+        fi
+    done
+
+    if (( ${#conflicts[@]} > 0 )); then
         echo "╭──────────────────────────────────────────────────────────────╮"
-        echo "│  Stale containers detected (hash-prefixed names)             │"
+        echo "│  Conflicting containers detected                             │"
         echo "╰──────────────────────────────────────────────────────────────╯"
-        printf "  %-50s %s\n" "STALE CONTAINER" "EXPECTED NAME"
-        echo "  ────────────────────────────────────────────────── ─────────────────────────"
-        for c in "${stale[@]}"; do
-            expected="${c#*_}"
-            printf "  %-50s %s\n" "$c" "$expected"
+        for c in "${conflicts[@]}"; do
+            echo "  • $c"
         done
         echo ""
-        read -rp "Remove these stale containers and recreate? [Y/n] " ans
+        read -rp "Remove these containers and recreate? [Y/n] " ans
         if [[ "${ans:-Y}" =~ ^[Yy]$ ]]; then
-            for c in "${stale[@]}"; do
-                echo "  Removing $c ..."
+            for c in "${conflicts[@]}"; do
+                log_step "Removing $c"
                 docker rm -f "$c" >/dev/null 2>&1 || true
             done
-            echo "✓ Stale containers removed"
+            log_ok "Conflicting containers removed"
             echo ""
         fi
     fi
 
     # --- Normal up flow ---
     if [[ -z "{{ service }}" ]]; then
-        echo "Starting all services..."
-        output=$(docker compose up -d --remove-orphans 2>&1)
-        started=$(echo "$output" | grep -c ' Started' || true)
-        running=$(echo "$output" | grep -c ' Running' || true)
-        errors=$(echo "$output" | grep -i 'error\|failed' || true)
-        if [[ -n "$errors" ]]; then
-            echo "$errors"
+        log_step "Starting all services…"
+        if ! output=$(docker compose up -d --remove-orphans 2>&1); then
+            echo "$output"
+            log_err "docker compose up failed"
+            exit 1
         fi
-        echo "✓ All services started ($started created, $running already running)"
+        started=$(grep -cE ' (Started|Created)' <<< "$output" || true)
+        running=$(grep -c ' Running' <<< "$output" || true)
+        errors=$(grep -iE 'error|failed' <<< "$output" || true)
+        [[ -n "$errors" ]] && echo "$errors"
+        log_ok "All services started ($started created, $running already running)"
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        svc_names=$(yq -r '.services | keys | .[]' "$compose")
-        echo "Starting {{ service }} (${svc_names//$'\n'/ })..."
-        docker compose up -d --remove-orphans $svc_names
-        echo "✓ {{ service }} started"
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        log_step "Starting {{ service }}…"
+        docker compose up -d --remove-orphans $SVC_NAMES
+        log_ok "{{ service }} started"
     fi
 
 # Stop a service (or all services) — removes containers and networks
@@ -100,20 +127,17 @@ start *service:
 stop *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     if [[ -z "{{ service }}" ]]; then
-        echo "Stopping all services..."
+        log_step "Stopping all services…"
         docker compose down --timeout 30 --remove-orphans
-        echo "✓ All services stopped"
+        log_ok "All services stopped"
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        svc_names=$(yq -r '.services | keys | .[]' "$compose")
-        echo "Stopping {{ service }} (${svc_names//$'\n'/ })..."
-        docker compose stop --timeout 30 $svc_names
-        docker compose rm -f $svc_names
-        echo "✓ {{ service }} stopped"
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        log_step "Stopping {{ service }}…"
+        docker compose stop --timeout 30 $SVC_NAMES
+        docker compose rm -f $SVC_NAMES
+        log_ok "{{ service }} stopped"
     fi
 
 # Restart a service (or all services)
@@ -121,19 +145,16 @@ stop *service:
 restart *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     if [[ -z "{{ service }}" ]]; then
-        echo "Restarting all services..."
+        log_step "Restarting all services…"
         docker compose restart
-        echo "✓ All services restarted"
+        log_ok "All services restarted"
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        svc_names=$(yq -r '.services | keys | .[]' "$compose")
-        echo "Restarting {{ service }}..."
-        docker compose restart $svc_names
-        echo "✓ {{ service }} restarted"
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        log_step "Restarting {{ service }}…"
+        docker compose restart $SVC_NAMES
+        log_ok "{{ service }} restarted"
     fi
 
 # Recreate a service (pull + force-recreate)
@@ -141,37 +162,61 @@ restart *service:
 recreate service:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    echo "Recreating {{ service }} (${svc_names//$'\n'/ })..."
-    docker compose pull $svc_names
-    docker compose up -d --force-recreate --remove-orphans $svc_names
-    echo "✓ {{ service }} recreated"
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    log_step "Pulling latest images for {{ service }}…"
+    docker compose pull $SVC_NAMES
+    log_step "Recreating {{ service }}…"
+    docker compose up -d --force-recreate --remove-orphans $SVC_NAMES
+    log_ok "{{ service }} recreated"
 
 # Update a service (pull + up) or all services
 [group('manage')]
 update *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     if [[ -z "{{ service }}" ]]; then
-        echo "Updating all services..."
-        docker compose pull
+        log_step "Pulling latest images for all services…"
+        docker compose pull 2>&1
+        log_step "Bringing services up…"
         docker compose up -d --remove-orphans
-        echo "✓ All services updated"
+        log_ok "All services updated"
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        svc_names=$(yq -r '.services | keys | .[]' "$compose")
-        echo "Updating {{ service }}..."
-        docker compose pull $svc_names
-        docker compose up -d --remove-orphans $svc_names
-        echo "✓ {{ service }} updated"
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        log_step "Pulling latest images for {{ service }}…"
+        docker compose pull $SVC_NAMES 2>&1
+        log_step "Bringing {{ service }} up…"
+        docker compose up -d --remove-orphans $SVC_NAMES
+        log_ok "{{ service }} updated"
     fi
+
+# Build and run service from local Dockerfile (requires compose.local.yaml)
+[group('manage')]
+build-local service:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source "{{ helpers }}"
+    svc_dir="{{ services_dir }}/{{ service }}"
+    local_compose="$svc_dir/compose.local.yaml"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    if [[ ! -f "$local_compose" ]]; then
+        log_err "No compose.local.yaml found for '{{ service }}'"
+        echo "Create $local_compose with build context to use this recipe" >&2
+        exit 1
+    fi
+    # Stop and remove any existing container (may be from different compose project)
+    cache_docker_ps
+    for svc in $SVC_NAMES; do
+        if [[ -n "${DOCKER_STATE[$svc]:-}" ]]; then
+            log_step "Removing existing container: $svc"
+            docker rm -f "$svc" >/dev/null 2>&1 || true
+        fi
+    done
+    log_step "Building {{ service }} from local Dockerfile…"
+    cd "$svc_dir"
+    docker compose -p nexus -f compose.yaml -f compose.local.yaml up -d --build --force-recreate --remove-orphans
+    log_ok "{{ service }} built and started"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  STATUS & LISTING                                                          ║
@@ -182,53 +227,78 @@ update *service:
 status *service:
     #!/usr/bin/env bash
     set -euo pipefail
-    go_fmt='{{ _l }}.State{{ _r }}|{{ _l }}.Status{{ _r }}'
+    source "{{ helpers }}"
     if [[ -z "{{ service }}" ]]; then
+        # ── Collect data with spinner, then render table ──
+        tmpfile=$(mktemp)
+        _gather_status() {
+            cache_docker_ps
+            for dir in {{ services_dir }}/*/; do
+                svc=$(basename "$dir")
+                [[ "$svc" == .* ]] && continue
+                compose="{{ services_dir }}/$svc/compose.yaml"
+                [[ -f "$compose" ]] || continue
+                mapfile -t svc_containers < <(yq -r '.services | keys | .[]' "$compose" 2>/dev/null)
+                svc_count=${#svc_containers[@]}
+                if (( svc_count > 1 )); then
+                    total_ct=$svc_count; running_ct=0; healthy_ct=0; checks_ct=0; group_uptime="-"
+                    for ct in "${svc_containers[@]}"; do
+                        ct_state="${DOCKER_STATE[$ct]:-}"
+                        ct_status="${DOCKER_STATUS[$ct]:-}"
+                        if [[ "$ct_state" == "running" ]]; then
+                            ((running_ct++)) || true
+                            [[ "$group_uptime" == "-" ]] && group_uptime=$(grep -oP 'Up \K.*' <<< "$ct_status" | sed 's/ (.*//' || echo "-")
+                        fi
+                        if [[ "$ct_status" == *"(healthy)"* ]]; then
+                            ((healthy_ct++)) || true; ((checks_ct++)) || true
+                        elif [[ "$ct_status" == *"(unhealthy)"* || "$ct_status" == *"health: starting"* ]]; then
+                            ((checks_ct++)) || true
+                        fi
+                    done
+                    if (( running_ct == total_ct )); then sc="\033[32m"; state_display="running"
+                    elif (( running_ct > 0 ));       then sc="\033[33m"; state_display="partial"
+                    else sc="\033[2m"; state_display="not created"; fi
+                    if (( checks_ct > 0 )); then
+                        health_display="${healthy_ct}/${total_ct}"
+                        if   (( healthy_ct == total_ct )); then hc="\033[32m"
+                        elif (( healthy_ct > 0 ));         then hc="\033[33m"
+                        else hc="\033[31m"; fi
+                    else health_display="-"; hc="\033[0m"; fi
+                    printf "${sc}%-22s\033[0m %-12s ${hc}%-10s\033[0m %s\n" \
+                        "$svc" "$state_display" "$health_display" "$group_uptime"
+                else
+                    ct_name="${svc_containers[0]:-$svc}"
+                    state="${DOCKER_STATE[$ct_name]:-}"
+                    status="${DOCKER_STATUS[$ct_name]:-}"
+                    if [[ -n "$state" ]]; then
+                        health="-"
+                        [[ "$status" == *"(healthy)"* ]]         && health="healthy"
+                        [[ "$status" == *"(unhealthy)"* ]]       && health="unhealthy"
+                        [[ "$status" == *"health: starting"* ]]  && health="starting"
+                        uptime="-"
+                        [[ "$state" == "running" ]] && uptime=$(grep -oP 'Up \K.*' <<< "$status" | sed 's/ (.*//' || echo "-")
+                        case "$state" in running) sc="\033[32m";; exited) sc="\033[31m";; *) sc="\033[33m";; esac
+                        case "$health" in healthy) hc="\033[32m";; unhealthy) hc="\033[31m";; starting) hc="\033[33m";; *) hc="\033[0m";; esac
+                        printf "${sc}%-22s\033[0m %-12s ${hc}%-10s\033[0m %s\n" "$svc" "$state" "$health" "$uptime"
+                    else
+                        printf "\033[2m%-22s %-12s %-10s %s\033[0m\n" "$svc" "not created" "-" "-"
+                    fi
+                fi
+            done
+        }
+        _gather_status > "$tmpfile" 2>&1 &
+        spin $! "Gathering container status…"
         echo "╭──────────────────────────────────────────────────────────────╮"
         echo "│  Nexus — Container Status                                    │"
         echo "╰──────────────────────────────────────────────────────────────╯"
         echo ""
         printf "%-22s %-12s %-10s %s\n" "SERVICE" "STATE" "HEALTH" "UPTIME"
         printf "%-22s %-12s %-10s %s\n" "───────" "─────" "──────" "──────"
-        for dir in {{ services_dir }}/*/; do
-            svc=$(basename "$dir")
-            [[ "$svc" == .* ]] && continue
-            compose="{{ services_dir }}/$svc/compose.yaml"
-            [[ -f "$compose" ]] || continue
-            info=$(docker ps -a --filter "name=^${svc}$" --format "$go_fmt" 2>/dev/null | head -1)
-            if [[ -n "$info" ]]; then
-                state=$(echo "$info" | cut -d'|' -f1)
-                status=$(echo "$info" | cut -d'|' -f2)
-                health="-"
-                [[ "$status" == *"(healthy)"* ]] && health="healthy"
-                [[ "$status" == *"(unhealthy)"* ]] && health="unhealthy"
-                [[ "$status" == *"health: starting"* ]] && health="starting"
-                uptime="-"
-                if [[ "$state" == "running" ]]; then
-                    uptime=$(echo "$status" | grep -oP 'Up \K.*' | sed 's/ (.*)//')
-                fi
-                case "$state" in
-                    running)   sc="\033[32m" ;;
-                    exited)    sc="\033[31m" ;;
-                    *)         sc="\033[33m" ;;
-                esac
-                case "$health" in
-                    healthy)   hc="\033[32m" ;;
-                    unhealthy) hc="\033[31m" ;;
-                    starting)  hc="\033[33m" ;;
-                    *)         hc="\033[0m"  ;;
-                esac
-                printf "${sc}%-22s\033[0m %-12s ${hc}%-10s\033[0m %s\n" "$svc" "$state" "$health" "$uptime"
-            else
-                printf "\033[2m%-22s %-12s %-10s %s\033[0m\n" "$svc" "not created" "-" "-"
-            fi
-        done
+        cat "$tmpfile"
+        rm -f "$tmpfile"
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        docker compose -f "$compose" ps
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        docker compose -f "$SVC_COMPOSE" ps
     fi
 
 # List services, backups, or archives
@@ -246,29 +316,64 @@ list *what:
 _list-services *filter:
     #!/usr/bin/env bash
     set -euo pipefail
-    names_fmt='{{ _l }}.Names{{ _r }}'
-    running=$(docker ps --format "$names_fmt" 2>/dev/null)
+    source "{{ helpers }}"
+
+    # Single docker call, build a set of running container names
+    declare -A running_set=()
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && running_set["$name"]=1
+    done < <(docker ps --format '{{ _l }}.Names{{ _r }}' 2>/dev/null)
+
+    tmpfile=$(mktemp)
+    total=0; up=0; down=0
+    _scan() {
+        for dir in {{ services_dir }}/*/; do
+            svc=$(basename "$dir")
+            [[ "$svc" == .* ]] && continue
+            [[ -n "{{ filter }}" ]] && ! grep -qi "{{ filter }}" <<< "$svc" && continue
+            compose="{{ services_dir }}/$svc/compose.yaml"
+            ((total++)) || true
+            if [[ ! -f "$compose" ]]; then
+                printf "  \033[2m○ %s\033[0m\n" "$svc"
+                ((down++)) || true
+                continue
+            fi
+            # Fast path: try dir name first (matches ~90% of services)
+            if [[ -n "${running_set[$svc]:-}" ]]; then
+                printf "  \033[32m●\033[0m %s\n" "$svc"
+                ((up++)) || true
+                continue
+            fi
+            # Slow path: check yq-resolved container names
+            svc_running=false
+            while IFS= read -r ct; do
+                [[ -n "${running_set[$ct]:-}" ]] && svc_running=true && break
+            done < <(yq -r '.services | keys | .[]' "$compose" 2>/dev/null)
+            if $svc_running; then
+                printf "  \033[32m●\033[0m %s\n" "$svc"
+                ((up++)) || true
+            else
+                printf "  \033[2m○ %s\033[0m\n" "$svc"
+                ((down++)) || true
+            fi
+        done
+        echo "---COUNTS:${total}:${up}:${down}"
+    }
+    _scan > "$tmpfile" 2>&1 &
+    spin $! "Scanning services…"
+
     echo "╭──────────────────────────────────────────────────────────────╮"
     echo "│  Nexus — Services                                            │"
     echo "╰──────────────────────────────────────────────────────────────╯"
     echo ""
-    total=0; up=0; down=0
-    for dir in {{ services_dir }}/*/; do
-        svc=$(basename "$dir")
-        [[ "$svc" == .* ]] && continue
-        [[ -n "{{ filter }}" ]] && ! echo "$svc" | grep -qi "{{ filter }}" && continue
-        compose="{{ services_dir }}/$svc/compose.yaml"
-        ((total++)) || true
-        if [[ -f "$compose" ]] && echo "$running" | grep -qx "$svc" 2>/dev/null; then
-            printf "  \033[32m●\033[0m %s\n" "$svc"
-            ((up++)) || true
-        else
-            printf "  \033[2m○ %s\033[0m\n" "$svc"
-            ((down++)) || true
-        fi
-    done
+    grep -v '^---COUNTS:' "$tmpfile"
+    counts=$(grep '^---COUNTS:' "$tmpfile" | tail -1)
+    total=$(cut -d: -f2 <<< "$counts")
+    up=$(cut -d: -f3 <<< "$counts")
+    down=$(cut -d: -f4 <<< "$counts")
     echo ""
     echo "Total: $total  Running: $up  Stopped: $down"
+    rm -f "$tmpfile"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  LOGGING                                                                   ║
@@ -302,36 +407,27 @@ log *args:
 _log-snapshot service lines="200":
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    docker compose logs --tail={{ lines }} $svc_names
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    docker compose logs --tail={{ lines }} $SVC_NAMES
 
 # Follow (tail) live logs for a service
 [group('log')]
 tail service *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    docker compose logs -f --tail=100 $svc_names {{ args }}
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    docker compose logs -f --tail=100 $SVC_NAMES {{ args }}
 
 # Show logs since a time (e.g. "1h", "30m", "2024-01-01")
 [private]
 _log-since service since:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    docker compose logs --since={{ since }} --tail=500 $svc_names
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    docker compose logs --since={{ since }} --tail=500 $SVC_NAMES
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  DEBUGGING                                                                 ║
@@ -357,11 +453,13 @@ shell service *shell_cmd:
 top *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     stats_fmt='table {{ _l }}.Name{{ _r }}\t{{ _l }}.CPUPerc{{ _r }}\t{{ _l }}.MemUsage{{ _r }}\t{{ _l }}.NetIO{{ _r }}\t{{ _l }}.BlockIO{{ _r }}'
     if [[ -z "{{ service }}" ]]; then
-        docker stats --no-stream --format "$stats_fmt" | head -1
-        docker stats --no-stream --format "$stats_fmt" | tail -n +2 | sort
+        log_step "Collecting resource usage…"
+        docker stats --no-stream --format "$stats_fmt" | (read -r header; echo "$header"; sort)
     else
+        log_step "Resource usage for {{ service }}"
         docker stats --no-stream "{{ service }}"
     fi
 
@@ -370,51 +468,83 @@ top *service:
 config service:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    docker compose config $svc_names
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    docker compose config $SVC_NAMES
 
 # Validate compose file(s) for a service (or all)
 [group('debug')]
 validate *service:
     #!/usr/bin/env bash
     set -euo pipefail
-    errors=0
+    source "{{ helpers }}"
     if [[ -z "{{ service }}" ]]; then
-        echo "Validating all compose files..."
+        # Collect compose files
+        compose_files=()
+        svc_names_list=()
         for dir in {{ services_dir }}/*/; do
             svc=$(basename "$dir")
             [[ "$svc" == .* ]] && continue
             compose="{{ services_dir }}/$svc/compose.yaml"
             [[ -f "$compose" ]] || continue
-            if docker compose -f "$compose" config > /dev/null 2>&1; then
+            compose_files+=("$compose")
+            svc_names_list+=("$svc")
+        done
+        total=${#compose_files[@]}
+        results_dir=$(mktemp -d)
+
+        # Parallel validation
+        log_step "Validating $total compose files…"
+        _run_validations() {
+            local max_jobs=$(nproc 2>/dev/null || echo 4)
+            local i=0
+            for idx in "${!compose_files[@]}"; do
+                local compose="${compose_files[$idx]}"
+                local svc="${svc_names_list[$idx]}"
+                (
+                    if docker compose -f "$compose" config > /dev/null 2>&1; then
+                        echo "OK" > "$results_dir/$svc"
+                    else
+                        errs=$(docker compose -f "$compose" config 2>&1 | grep -i "error" | head -3 || true)
+                        echo "FAIL:$errs" > "$results_dir/$svc"
+                    fi
+                ) &
+                parallel_track $!
+                parallel_limit "$max_jobs"
+            done
+            parallel_wait || true
+        }
+        _run_validations > /dev/null 2>&1 &
+        spin $! "Validating $total compose files…"
+
+        # Display results
+        errors=0
+        for svc in "${svc_names_list[@]}"; do
+            result=$(<"$results_dir/$svc")
+            if [[ "$result" == "OK" ]]; then
                 printf "  \033[32m✓\033[0m %s\n" "$svc"
             else
                 printf "  \033[31m✗\033[0m %s\n" "$svc"
-                docker compose -f "$compose" config 2>&1 | grep -i "error" | sed 's/^/    /' || true
+                echo "${result#FAIL:}" | sed 's/^/    /' || true
                 ((errors++)) || true
             fi
         done
+        rm -rf "$results_dir"
         echo ""
         if [[ $errors -eq 0 ]]; then
-            echo "✓ All compose files valid"
+            log_ok "All $total compose files valid"
         else
-            echo "✗ $errors service(s) have invalid compose files" >&2
+            log_err "$errors service(s) have invalid compose files"
             exit 1
         fi
     else
-        compose="{{ services_dir }}/{{ service }}/compose.yaml"
-        if [[ ! -f "$compose" ]]; then
-            echo "✗ Service '{{ service }}' not found" >&2; exit 1
-        fi
-        if docker compose -f "$compose" config > /dev/null 2>&1; then
-            echo "✓ {{ service }} compose file is valid"
+        resolve_service "{{ service }}" "{{ services_dir }}"
+        log_step "Validating {{ service }}…"
+        if docker compose -f "$SVC_COMPOSE" config > /dev/null 2>&1; then
+            log_ok "{{ service }} compose file is valid"
         else
-            echo "✗ {{ service }} compose file has errors:" >&2
-            docker compose -f "$compose" config 2>&1
+            log_err "{{ service }} compose file has errors:"
+            docker compose -f "$SVC_COMPOSE" config 2>&1
             exit 1
         fi
     fi
@@ -424,26 +554,32 @@ validate *service:
 inspect service:
     #!/usr/bin/env bash
     set -euo pipefail
-    fmt_image='{{ _l }}.Config.Image{{ _r }}'
-    fmt_ports='{{ _l }}range $p, $conf := .NetworkSettings.Ports{{ _r }}  {{ _l }}$p{{ _r }} -> {{ _l }}range $conf{{ _r }}{{ _l }}.HostIp{{ _r }}:{{ _l }}.HostPort{{ _r }}{{ _l }}end{{ _r }}{{ _l }}"\n"{{ _r }}{{ _l }}end{{ _r }}'
-    fmt_mounts='{{ _l }}range .Mounts{{ _r }}  {{ _l }}.Source{{ _r }} -> {{ _l }}.Destination{{ _r }} ({{ _l }}.Type{{ _r }}){{ _l }}"\n"{{ _r }}{{ _l }}end{{ _r }}'
-    fmt_nets='{{ _l }}range $k, $v := .NetworkSettings.Networks{{ _r }}  {{ _l }}$k{{ _r }}: {{ _l }}$v.IPAddress{{ _r }}{{ _l }}"\n"{{ _r }}{{ _l }}end{{ _r }}'
-    fmt_env='{{ _l }}range .Config.Env{{ _r }}  {{ _l }}.{{ _r }}{{ _l }}"\n"{{ _r }}{{ _l }}end{{ _r }}'
+    source "{{ helpers }}"
+    # Single docker inspect call → parse with jq
+    _gather() {
+        docker inspect "{{ service }}" 2>/dev/null || echo "[]"
+    }
+    spin_while "Inspecting {{ service }}…" _gather || true
+    json="$SPIN_OUTPUT"
     echo "╭──────────────────────────────────────────────────────────────╮"
     echo "│  {{ service }} — Container Details                          │"
     echo "╰──────────────────────────────────────────────────────────────╯"
     echo ""
+    if [[ -z "$json" || "$json" == "[]" ]]; then
+        echo "  (container not found or not running)"
+        exit 0
+    fi
     echo "── Image ──"
-    docker inspect "{{ service }}" --format "$fmt_image" 2>/dev/null || echo "  (not running)"
+    jq -r '.[0].Config.Image // "(unknown)"' <<< "$json" | sed 's/^/  /'
     echo ""
     echo "── Ports ──"
-    docker inspect "{{ service }}" --format "$fmt_ports" 2>/dev/null || echo "  (none)"
+    jq -r '.[0].NetworkSettings.Ports // {} | to_entries[] | "  \(.key) -> \(.value // [] | map("\(.HostIp):\(.HostPort)") | join(", "))"' <<< "$json" 2>/dev/null || echo "  (none)"
     echo "── Mounts ──"
-    docker inspect "{{ service }}" --format "$fmt_mounts" 2>/dev/null || echo "  (none)"
+    jq -r '.[0].Mounts[]? | "  \(.Source) -> \(.Destination) (\(.Type))"' <<< "$json" 2>/dev/null || echo "  (none)"
     echo "── Networks ──"
-    docker inspect "{{ service }}" --format "$fmt_nets" 2>/dev/null || echo "  (none)"
+    jq -r '.[0].NetworkSettings.Networks // {} | to_entries[] | "  \(.key): \(.value.IPAddress)"' <<< "$json" 2>/dev/null || echo "  (none)"
     echo "── Environment ──"
-    docker inspect "{{ service }}" --format "$fmt_env" 2>/dev/null | grep -v -E '(PASSWORD|SECRET|TOKEN|KEY)=' | head -30 || echo "  (none)"
+    jq -r '.[0].Config.Env[]? | select(test("PASSWORD|SECRET|TOKEN|KEY") | not)' <<< "$json" 2>/dev/null | head -30 | sed 's/^/  /' || echo "  (none)"
     echo "  (secrets redacted)"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
@@ -455,22 +591,24 @@ inspect service:
 new service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     target="{{ services_dir }}/{{ service }}"
     if [[ -d "$target" ]]; then
-        echo "✗ Service '{{ service }}' already exists at $target" >&2
+        log_err "Service '{{ service }}' already exists at $target"
         exit 1
     fi
     # Check if there's an archived version
     archived="{{ archive_dir }}/{{ service }}"
     if [[ -d "$archived" ]]; then
-        echo "Found archived version of '{{ service }}'."
+        log_warn "Found archived version of '{{ service }}'."
         read -p "Restore from archive instead? [y/N] " restore
         if [[ "$restore" =~ ^[Yy]$ ]]; then
             mv "$archived" "$target"
-            echo "✓ Restored {{ service }} from archive"
+            log_ok "Restored {{ service }} from archive"
             exit 0
         fi
     fi
+    log_step "Creating {{ service }} from template…"
     mkdir -p "$target"
     svc="{{ service }}"
     cat > "$target/compose.yaml" << EOF
@@ -517,7 +655,7 @@ new service:
         tmpfs:
           - /tmp:rw,noexec,nosuid,size=64m
         volumes:
-          - \${DATA_PATH}/${svc}:/data         # Adjust mount path per docs
+          - \${DATA_PATH:?data path not defined}/${svc}:/data         # Adjust mount path per docs
         networks:
           - nexus
 
@@ -527,7 +665,7 @@ new service:
     EOF
     # Fix indentation (remove leading 4-space indent from heredoc)
     sed -i 's/^    //' "$target/compose.yaml"
-    echo "✓ Created {{ service }} at $target/compose.yaml"
+    log_ok "Created {{ service }} at $target/compose.yaml"
     echo ""
     echo "Next steps:"
     echo "  1. Edit $target/compose.yaml — fill in <IMAGE>, <PORT>, etc."
@@ -540,17 +678,19 @@ new service:
 clone source target:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     src="{{ services_dir }}/{{ source }}"
     dst="{{ services_dir }}/{{ target }}"
     if [[ ! -d "$src" ]]; then
-        echo "✗ Source service '{{ source }}' not found" >&2; exit 1
+        log_err "Source service '{{ source }}' not found"; exit 1
     fi
     if [[ -d "$dst" ]]; then
-        echo "✗ Target '{{ target }}' already exists" >&2; exit 1
+        log_err "Target '{{ target }}' already exists"; exit 1
     fi
+    log_step "Cloning {{ source }} → {{ target }}…"
     cp -r "$src" "$dst"
     sed -i "s/{{ source }}/{{ target }}/g" "$dst/compose.yaml"
-    echo "✓ Cloned {{ source }} → {{ target }}"
+    log_ok "Cloned {{ source }} → {{ target }}"
     echo "  Edit {{ services_dir }}/{{ target }}/compose.yaml to customize"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
@@ -562,11 +702,12 @@ clone source target:
 archive service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     src="{{ services_dir }}/{{ service }}"
     dst="{{ archive_dir }}/{{ service }}"
     compose="$src/compose.yaml"
     if [[ ! -d "$src" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
+        log_err "Service '{{ service }}' not found"; exit 1
     fi
     printf '╭%62s╮\n' '' | tr ' ' '─'
     printf '│  %-60s│\n' 'Archiving: {{ service }}'
@@ -574,18 +715,18 @@ archive service:
     echo ""
     # 1. Stop the service gracefully
     if [[ -f "$compose" ]]; then
-        echo "① Stopping {{ service }}..."
+        log_step "① Stopping {{ service }}…"
         svc_names=$(yq -r '.services | keys | .[]' "$compose")
         docker compose stop --timeout 30 $svc_names 2>&1 | sed 's/^/   /' || true
         docker compose rm -f $svc_names 2>&1 | sed 's/^/   /' || true
     fi
     # 2. Backup the config before archiving
-    echo "② Backing up config..."
+    log_step "② Backing up config…"
     mkdir -p "{{ backup_dir }}/retired"
     tar -czf "{{ backup_dir }}/retired/{{ service }}-{{ ts }}.tar.gz" \
         -C "{{ services_dir }}" "{{ service }}" 2>/dev/null || true
     # 3. Move to archive
-    echo "③ Archiving..."
+    log_step "③ Archiving…"
     mkdir -p "{{ archive_dir }}"
     if [[ -d "$dst" ]]; then
         mv "$src" "${dst}-{{ ts }}"
@@ -594,10 +735,10 @@ archive service:
         mv "$src" "$dst"
     fi
     # 4. Remove from root compose.yaml
-    echo "④ Updating compose.yaml..."
+    log_step "④ Updating compose.yaml…"
     "{{ scripts_dir }}/sync-compose.sh" --remove-orphans 2>&1 | sed 's/^/   /'
     echo ""
-    echo "✓ {{ service }} archived"
+    log_ok "{{ service }} archived"
     echo "  Config backup: {{ backup_dir }}/retired/{{ service }}-{{ ts }}.tar.gz"
     echo "  Archived to:   {{ archive_dir }}/{{ service }}"
     echo ""
@@ -608,10 +749,11 @@ archive service:
 unarchive service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     src="{{ archive_dir }}/{{ service }}"
     dst="{{ services_dir }}/{{ service }}"
     if [[ ! -d "$src" ]]; then
-        echo "✗ No archive found for '{{ service }}'" >&2
+        log_err "No archive found for '{{ service }}'"
         matches=$(ls -d {{ archive_dir }}/{{ service }}-* 2>/dev/null || true)
         if [[ -n "$matches" ]]; then
             echo "  Found timestamped archives:"
@@ -621,12 +763,12 @@ unarchive service:
         exit 1
     fi
     if [[ -d "$dst" ]]; then
-        echo "✗ Service '{{ service }}' already exists in services/" >&2; exit 1
+        log_err "Service '{{ service }}' already exists in services/"; exit 1
     fi
+    log_step "Restoring {{ service }} from archive…"
     mv "$src" "$dst"
-    # Add back to root compose.yaml
     "{{ scripts_dir }}/sync-compose.sh" --sync 2>&1 | sed 's/^/  /'
-    echo "✓ Restored {{ service }} from archive"
+    log_ok "Restored {{ service }} from archive"
     echo "  Run: just start {{ service }}"
 
 # List archived services
@@ -672,7 +814,8 @@ backup *args:
             just _backup-secrets
             just _backup-data
             echo ""
-            echo "✓ Full backup complete → {{ backup_dir }}/"
+            source "{{ helpers }}"
+            log_ok "Full backup complete → {{ backup_dir }}/"
             ;;
         *)
             echo "Usage: just backup [configs|secrets|data|all]" >&2
@@ -685,28 +828,32 @@ backup *args:
 _backup-configs:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     dest="{{ backup_dir }}/configs-{{ ts }}.tar.gz"
     mkdir -p "{{ backup_dir }}"
-    echo "Backing up service configs..."
-    tar -czf "$dest" \
-        -C "{{ root_dir }}" \
-        --exclude='services/.template' \
-        services/ 2>/dev/null
+    _do_tar() {
+        tar -czf "$dest" \
+            -C "{{ root_dir }}" \
+            --exclude='services/.template' \
+            services/ 2>/dev/null
+    }
+    _do_tar &
+    spin $! "Backing up service configs…"
     size=$(du -sh "$dest" | cut -f1)
-    echo "✓ Configs backed up ($size) → $dest"
+    log_ok "Configs backed up ($size) → $dest"
 
 # Backup .env and secrets (encrypted with optional GPG passphrase)
 [private]
 _backup-secrets:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     dest="{{ backup_dir }}/secrets-{{ ts }}.tar.gz"
     mkdir -p "{{ backup_dir }}"
-    echo "Backing up secrets and environment files..."
     files=()
     [[ -f "{{ root_dir }}/.env" ]] && files+=(".env")
     [[ -f "{{ root_dir }}/.env.example" ]] && files+=(".env.example")
-    # Collect any per-service .env or secret files
+    # Scan for secret files (filesystem ops only, no subshell needed)
     for dir in {{ services_dir }}/*/; do
         svc=$(basename "$dir")
         [[ "$svc" == .* ]] && continue
@@ -718,17 +865,19 @@ _backup-secrets:
         echo "No secret files found"
         exit 0
     fi
-    tar -czf "$dest" -C "{{ root_dir }}" "${files[@]}" 2>/dev/null || true
+    _do_tar() { tar -czf "$dest" -C "{{ root_dir }}" "${files[@]}" 2>/dev/null || true; }
+    _do_tar &
+    spin $! "Compressing ${#files[@]} secret files…"
     size=$(du -sh "$dest" | cut -f1)
-    echo "✓ Secrets backed up ($size) → $dest"
+    log_ok "Secrets backed up ($size) → $dest"
     echo ""
-    echo "  ⚠  This file contains sensitive data. Store securely."
+    log_warn "This file contains sensitive data. Store securely."
     if command -v gpg &>/dev/null; then
         read -p "  Encrypt with GPG passphrase? [y/N] " encrypt
         if [[ "$encrypt" =~ ^[Yy]$ ]]; then
             gpg --symmetric --cipher-algo AES256 "$dest"
             rm "$dest"
-            echo "  ✓ Encrypted → ${dest}.gpg"
+            log_ok "Encrypted → ${dest}.gpg"
         fi
     fi
 
@@ -737,9 +886,10 @@ _backup-secrets:
 _backup-data *service:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     data="{{ data_path }}"
     if [[ ! -d "$data" ]]; then
-        echo "✗ Data path not found: $data" >&2
+        log_err "Data path not found: $data"
         echo "  Set DATA_PATH in .env" >&2
         exit 1
     fi
@@ -747,21 +897,21 @@ _backup-data *service:
     if [[ -n "{{ service }}" ]]; then
         svc_data="$data/{{ service }}"
         if [[ ! -d "$svc_data" ]]; then
-            echo "✗ No data directory for '{{ service }}' at $svc_data" >&2; exit 1
+            log_err "No data directory for '{{ service }}' at $svc_data"; exit 1
         fi
         dest="{{ backup_dir }}/data-{{ service }}-{{ ts }}.tar.gz"
-        echo "Backing up {{ service }} data..."
-        echo "  ⚠  Stop the service first for a consistent backup: just stop {{ service }}"
-        tar -czf "$dest" -C "$data" "{{ service }}" 2>/dev/null
+        log_warn "Stop the service first for a consistent backup: just stop {{ service }}"
+        tar -czf "$dest" -C "$data" "{{ service }}" 2>/dev/null &
+        spin $! "Backing up {{ service }} data…"
         size=$(du -sh "$dest" | cut -f1)
-        echo "✓ Data backed up ($size) → $dest"
+        log_ok "Data backed up ($size) → $dest"
     else
         dest="{{ backup_dir }}/data-all-{{ ts }}.tar.gz"
-        echo "Backing up all service data from $data ..."
-        echo "  ⚠  For consistent backups, stop services first: just stop"
-        tar -czf "$dest" -C "$data" . 2>/dev/null
+        log_warn "For consistent backups, stop services first: just stop"
+        tar -czf "$dest" -C "$data" . 2>/dev/null &
+        spin $! "Backing up all service data (this may take a while)…"
         size=$(du -sh "$dest" | cut -f1)
-        echo "✓ All data backed up ($size) → $dest"
+        log_ok "All data backed up ($size) → $dest"
     fi
 
 # List existing backups
@@ -801,24 +951,25 @@ _list-backups:
 restore file:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     backup="{{ file }}"
     if [[ ! -f "$backup" ]]; then
         backup="{{ backup_dir }}/{{ file }}"
     fi
     if [[ ! -f "$backup" ]]; then
-        echo "✗ Backup file not found: {{ file }}" >&2; exit 1
+        log_err "Backup file not found: {{ file }}"; exit 1
     fi
-    echo "Restoring from: $backup"
+    log_step "Inspecting backup: $backup"
     echo "  Contents:"
     tar -tzf "$backup" | head -20 | sed 's/^/    /'
     echo ""
     read -p "  Restore to {{ root_dir }}? [y/N] " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-        echo "Cancelled"
+        log_warn "Cancelled"
         exit 0
     fi
     tar -xzf "$backup" -C "{{ root_dir }}"
-    echo "✓ Restored from $backup"
+    log_ok "Restored from $backup"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  SYNC                                                                      ║
@@ -834,12 +985,130 @@ _check-sync:
 sync *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ "{{ args }}" == *"--remove-orphans"* ]]; then
+    source "{{ helpers }}"
+    args="{{ args }}"
+    if [[ "$args" == *"--help"* || "$args" == *"-h"* ]]; then
+        "{{ scripts_dir }}/sync-compose.sh" --help
+    elif [[ " $args " == *" --remove-orphans "* || "$args" == "--remove-orphans" ]]; then
+        log_step "Syncing compose.yaml…"
         "{{ scripts_dir }}/sync-compose.sh" --sync
+        log_step "Removing orphans…"
         "{{ scripts_dir }}/sync-compose.sh" --remove-orphans
+    elif [[ -n "$args" && "$args" != -* ]]; then
+        log_step "Syncing $args…"
+        "{{ scripts_dir }}/sync-compose.sh" --sync "$args"
     else
+        log_step "Syncing compose.yaml…"
         "{{ scripts_dir }}/sync-compose.sh" --sync
     fi
+
+# Generate config files from .template files (excludes .env.template)
+[group('sync')]
+templates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Load root .env
+    if [[ ! -f "{{ root_dir }}/.env" ]]; then
+        source "{{ helpers }}"
+        log_err ".env file not found"
+        exit 1
+    fi
+    set -a
+    source "{{ root_dir }}/.env"
+    set +a
+
+    echo "Generating config files from templates..."
+    rendered=0
+    failed=0
+    total=0
+
+    # Collect templates first
+    mapfile -t template_files < <(find "{{ data_path }}" \
+        -path "*/syncthing/data/*" -prune -o \
+        -path "*/.claude/*" -prune -o \
+        -type f -name "*.template" -print 2>/dev/null)
+    total=${#template_files[@]}
+    current=0
+
+    for template in "${template_files[@]}"; do
+        [[ -z "$template" ]] && continue
+        [[ "$template" == *".env.template" ]] && continue
+        ((current++)) || true
+
+        # Skip templates inside git repositories (submodules/cloned projects)
+        template_dir=$(dirname "$template")
+        while [[ "$template_dir" != "{{ data_path }}" && "$template_dir" != "/" ]]; do
+            if [[ -e "$template_dir/.git" ]]; then
+                continue 2  # Skip this template
+            fi
+            template_dir=$(dirname "$template_dir")
+        done
+
+        # Extract service name from path (e.g., /mnt/data/docker/adguard/sync/... -> adguard)
+        rel_path="${template#{{ data_path }}/}"
+        service_name="${rel_path%%/*}"
+
+        # Source service-specific .env if it exists (in a subshell to isolate vars)
+        (
+            # Re-source root .env first (subshell starts fresh)
+            set -a
+            source "{{ root_dir }}/.env"
+            # Then overlay service-specific .env
+            if [[ -f "{{ services_dir }}/${service_name}/.env" ]]; then
+                source "{{ services_dir }}/${service_name}/.env"
+            fi
+            set +a
+
+            output="${template%.template}"
+
+            # Check for unset variables
+            vars_in_template=$(grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' "$template" 2>/dev/null | sort -u || true)
+            missing_vars=""
+            for var in $vars_in_template; do
+                var_name="${var:2:-1}"  # Strip ${ and }
+                if [[ -z "${!var_name:-}" ]]; then
+                    missing_vars+=" $var"
+                fi
+            done
+
+            if [[ -n "$missing_vars" ]]; then
+                printf '  \033[31m✗\033[0m %s\n' "$template"
+                echo "    Missing:$missing_vars"
+                exit 1  # Signal failure to parent
+            fi
+
+            # Generate output
+            if envsubst < "$template" > "$output" 2>/dev/null; then
+                chmod 644 "$output"
+                printf '  \033[32m✓\033[0m %s\n' "$template"
+                exit 0  # Success
+            else
+                printf '  \033[31m✗\033[0m %s (envsubst failed)\n' "$template"
+                exit 1  # Failure
+            fi
+        )
+
+        if [[ $? -eq 0 ]]; then
+            ((rendered++)) || true
+        else
+            ((failed++)) || true
+        fi
+    done
+
+    echo ""
+    if ((failed > 0)); then
+        source "{{ helpers }}"
+        log_err "$rendered generated, $failed failed"
+        exit 1
+    else
+        source "{{ helpers }}"
+        log_ok "All templates ($rendered) generated successfully"
+    fi
+
+# Alias for templates
+[group('sync')]
+template: templates
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  MAINTENANCE                                                               ║
@@ -850,44 +1119,54 @@ sync *args:
 clean:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Cleaning Docker resources..."
-    docker system prune -f
+    source "{{ helpers }}"
+    prune_tmp=$(mktemp)
+    docker system prune -f > "$prune_tmp" 2>&1 &
+    spin $! "Pruning unused Docker resources…"
+    cat "$prune_tmp"
+    rm -f "$prune_tmp"
     echo ""
     echo "Disk usage:"
     docker system df
+    log_ok "Cleanup complete"
 
 # Setup pre-commit hooks and Docker network
 [group('maintenance')]
 setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Setting up development environment..."
+    source "{{ helpers }}"
+    log_step "Setting up development environment…"
     if command -v pre-commit &>/dev/null; then
         pre-commit install
         pre-commit install --hook-type commit-msg
-        echo "✓ Pre-commit hooks installed"
+        log_ok "Pre-commit hooks installed"
     else
-        echo "⚠ pre-commit not found (install with: pip install pre-commit)"
+        log_warn "pre-commit not found (install with: pip install pre-commit)"
     fi
     if ! docker network inspect nexus &>/dev/null; then
-        docker network create nexus
-        echo "✓ Docker network 'nexus' created"
+        log_step "Creating Docker network 'nexus'…"
+        docker network create nexus --subnet 172.52.0.0/16 --gateway 172.52.0.1
+        log_ok "Docker network 'nexus' created with subnet 172.52.0.0/16"
     else
-        echo "✓ Docker network 'nexus' exists"
+        log_ok "Docker network 'nexus' exists"
     fi
+    log_ok "Setup complete"
 
 # Update README with service listings
 [group('maintenance')]
 fmt:
     #!/usr/bin/env bash
     set -euo pipefail
+    source "{{ helpers }}"
     python_cmd="python3"
     [[ -f "{{ root_dir }}/.venv/bin/python" ]] && python_cmd="{{ root_dir }}/.venv/bin/python"
     if [[ -f "{{ root_dir }}/update-readme.py" ]]; then
+        log_step "Updating README.md…"
         "$python_cmd" "{{ root_dir }}/update-readme.py"
-        echo "✓ README.md updated"
+        log_ok "README.md updated"
     else
-        echo "✗ update-readme.py not found" >&2; exit 1
+        log_err "update-readme.py not found"; exit 1
     fi
 
 # Check a service, prerequisites, or sync status
@@ -915,44 +1194,39 @@ check *what:
 _check-service service:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    compose="$SVC_COMPOSE"
+    svc_names="$SVC_NAMES"
     image=$(yq -r '.services[].image // "(build)"' "$compose" | head -1)
 
-    go_state='{{ _l }}.State.Status{{ _r }}'
-    go_health='{{ _l }}if .State.Health{{ _r }}{{ _l }}.State.Health.Status{{ _r }}{{ _l }}else{{ _r }}n/a{{ _l }}end{{ _r }}'
-    go_started='{{ _l }}.State.StartedAt{{ _r }}'
-    go_restarts='{{ _l }}.RestartCount{{ _r }}'
-    go_ports='{{ _l }}range $p, $conf := .NetworkSettings.Ports{{ _r }}{{ _l }}$p{{ _r }} {{ _l }}end{{ _r }}'
-
-    state=$(docker inspect --format "$go_state" "{{ service }}" 2>/dev/null || echo "not found")
-    health=$(docker inspect --format "$go_health" "{{ service }}" 2>/dev/null || echo "-")
-    started=$(docker inspect --format "$go_started" "{{ service }}" 2>/dev/null || echo "-")
-    restarts=$(docker inspect --format "$go_restarts" "{{ service }}" 2>/dev/null || echo "-")
-    ports=$(docker inspect --format "$go_ports" "{{ service }}" 2>/dev/null | tr ' ' '\n' | grep -v '^$' || true)
-
-    # Health details (last 3 checks)
-    health_log=$(docker inspect --format '{{ _l }}range .State.Health.Log{{ _r }}{{ _l }}.End{{ _r }}|exit={{ _l }}.ExitCode{{ _r }}|||{{ _l }}end{{ _r }}' "{{ service }}" 2>/dev/null || true)
+    # Single docker inspect call → extract everything with jq
+    _gather() {
+        docker inspect "{{ service }}" 2>/dev/null || echo "[]"
+    }
+    spin_while "Checking {{ service }}…" _gather || true
+    json="$SPIN_OUTPUT"
 
     # Color helpers
     red='\033[31m'; grn='\033[32m'; ylw='\033[33m'; dim='\033[2m'; rst='\033[0m'
-    case "$state" in
-        running) sc="$grn" ;;
-        exited)  sc="$red" ;;
-        *)       sc="$ylw" ;;
-    esac
-    case "$health" in
-        healthy)   hc="$grn" ;;
-        unhealthy) hc="$red" ;;
-        starting)  hc="$ylw" ;;
-        *)         hc="$dim" ;;
-    esac
+
+    if [[ "$json" == "[]" ]]; then
+        state="not running"; health="-"; started="-"; restarts="-"
+        ports_raw=""; container_ip="-"; health_log=""
+    else
+        state=$(jq -r '.[0].State.Status // "unknown"' <<< "$json")
+        health=$(jq -r 'if .[0].State.Health then .[0].State.Health.Status else "n/a" end' <<< "$json")
+        started=$(jq -r '.[0].State.StartedAt // "-"' <<< "$json" | head -c 19)
+        restarts=$(jq -r '.[0].RestartCount // 0' <<< "$json")
+        container_ip=$(jq -r '[.[0].NetworkSettings.Networks[]] | first | .IPAddress // "n/a"' <<< "$json" 2>/dev/null | head -c 15)
+        # Health log entries
+        health_log=$(jq -r '.[0].State.Health.Log // [] | .[] | "\(.End[0:19])|exit=\(.ExitCode)"' <<< "$json" 2>/dev/null || true)
+    fi
+
+    case "$state" in running) sc="$grn";; exited) sc="$red";; *) sc="$ylw";; esac
+    case "$health" in healthy) hc="$grn";; unhealthy) hc="$red";; starting) hc="$ylw";; *) hc="$dim";; esac
 
     printf '\n'
-    # Header: name (state) — health: <status>
     if [[ "$health" == "n/a" ]]; then
         printf '  %b{{ service }}%b (%b%s%b)\n' "$sc" "$rst" "$sc" "$state" "$rst"
     else
@@ -960,87 +1234,87 @@ _check-service service:
     fi
     printf '\n'
     printf '    %bimage:%b     %s\n' "$dim" "$rst" "$image"
-    printf '    %bstarted:%b   %s\n' "$dim" "$rst" "${started:0:19}"
+    printf '    %bstarted:%b   %s\n' "$dim" "$rst" "$started"
     printf '    %brestarts:%b  %s\n' "$dim" "$rst" "$restarts"
+    printf '    %bip:%b        %s\n' "$dim" "$rst" "${container_ip:-n/a}"
+
+    # Ports (from jq)
     printf '    %bports:%b' "$dim" "$rst"
-    if [[ -z "$ports" ]]; then
+    if [[ "$json" == "[]" ]]; then
         printf '      (none)\n'
     else
-        printf '\n'
-        echo "$ports" | while IFS= read -r p; do
-            printf '      %s\n' "$p"
-        done
+        port_lines=$(jq -r '.[0].NetworkSettings.Ports // {} | to_entries[] | "\(.key)|\(.value // [] | map("\(.HostIp):\(.HostPort)") | join(","))"' <<< "$json" 2>/dev/null || true)
+        if [[ -z "$port_lines" ]]; then
+            printf '      (none)\n'
+        else
+            printf '\n'
+            while IFS='|' read -r cport host; do
+                [[ -z "$cport" ]] && continue
+                if [[ -n "$host" && "$host" != ":" && "$host" != "" ]]; then
+                    host_bind="${host%%,*}"
+                    printf '      %b⇄%b %s → %s\n' "$grn" "$rst" "$host_bind" "$cport"
+                else
+                    printf '      %b·%b %s %b(container only)%b\n' "$dim" "$rst" "$cport" "$dim" "$rst"
+                fi
+            done <<< "$port_lines"
+        fi
     fi
 
-    # Mounts: defined vs actual (across all containers in the service)
-    go_mounts='{{ _l }}range .Mounts{{ _r }}{{ _l }}.Source{{ _r }}:{{ _l }}.Destination{{ _r }}|||{{ _l }}end{{ _r }}'
-
-    # Collect actual mounts from all containers in this compose
-    all_actual_mounts=""
-    for svc in $svc_names; do
-        svc_mounts=$(docker inspect --format "$go_mounts" "$svc" 2>/dev/null | sed 's/|||/\n/g' | grep -v '^$' || true)
-        all_actual_mounts+="$svc_mounts"$'\n'
-    done
-
+    # Mounts: defined vs actual (single jq call per container)
     printf '    %bmounts:%b\n' "$dim" "$rst"
 
-    # Build associative array of actual mounts by destination
     declare -A actual_by_dest
-    while IFS= read -r m; do
-        [[ -z "$m" ]] && continue
-        dest="${m##*:}"
-        actual_by_dest["$dest"]="$m"
-    done <<< "$all_actual_mounts"
+    for svc in $svc_names; do
+        svc_json=$(docker inspect "$svc" 2>/dev/null || echo "[]")
+        [[ "$svc_json" == "[]" ]] && continue
+        while IFS='|' read -r src dest; do
+            [[ -z "$dest" ]] && continue
+            actual_by_dest["$dest"]="${src}:${dest}"
+        done < <(jq -r '.[0].Mounts[]? | "\(.Source)|\(.Destination)"' <<< "$svc_json" 2>/dev/null)
+    done
 
-    # Get and display volumes per service
     has_volumes=false
     for svc in $svc_names; do
         svc_vols=$(yq -r ".services[\"$svc\"].volumes[]" "$compose" 2>/dev/null || true)
         [[ -z "$svc_vols" ]] && continue
         has_volumes=true
-
-        # Show service name if multi-service compose
         if [[ $(echo "$svc_names" | wc -w) -gt 1 ]]; then
             printf '      %b[%s]%b\n' "$dim" "$svc" "$rst"
         fi
-
         while IFS= read -r vol; do
             [[ -z "$vol" ]] && continue
-            # Extract destination (after last :, handling ro/rw options)
-            dest=$(echo "$vol" | sed 's/:ro$//' | sed 's/:rw$//' | rev | cut -d: -f1 | rev)
+            dest=$(sed 's/:ro$//' <<< "$vol" | sed 's/:rw$//' | rev | cut -d: -f1 | rev)
             actual="${actual_by_dest[$dest]:-}"
             actual_src="${actual%%:*}"
-
-            # Check for problems
             if [[ "$vol" == *'${'* ]]; then
-                # Has variable reference - check if it resolved to something suspicious
-                if [[ -z "$actual_src" || "$actual_src" == "/" || "$actual_src" == ":" ]]; then
-                    printf '      %b⚠%b %s\n' "$ylw" "$rst" "$vol"
-                    printf '        %b→ MISSING: variable not set%b\n' "$red" "$rst"
-                elif [[ "$actual_src" == /* ]]; then
+                var_name=$(grep -oP '\$\{\K[A-Z_][A-Z0-9_]*' <<< "$vol" | head -1)
+                var_value="${!var_name:-}"
+                src_part="${vol%%:*}"
+                expanded_src=$(envsubst <<< "$src_part" 2>/dev/null || echo "")
+                if [[ -n "$actual_src" && "$actual_src" == /* ]]; then
                     printf '      %b✓%b %s\n' "$grn" "$rst" "$vol"
                     printf '        %b→ %s%b\n' "$dim" "$actual_src" "$rst"
+                elif [[ -n "$var_value" && -n "$expanded_src" ]]; then
+                    printf '      %b✓%b %s\n' "$grn" "$rst" "$vol"
+                    printf '        %b→ %s (env)%b\n' "$dim" "$expanded_src" "$rst"
                 else
-                    printf '      %b?%b %s\n' "$ylw" "$rst" "$vol"
+                    printf '      %b⚠%b %s\n' "$ylw" "$rst" "$vol"
+                    printf '        %b→ MISSING: %s not set%b\n' "$red" "$rst" "$var_name"
                 fi
             else
-                # No variable - just show it
                 printf '      %s\n' "$vol"
             fi
         done <<< "$svc_vols"
     done
-
-    if [[ "$has_volumes" == "false" ]]; then
-        printf '      (none)\n'
-    fi
+    [[ "$has_volumes" == "false" ]] && printf '      (none)\n'
 
     # Health check log
-    if [[ -n "$health_log" && "$health_log" != *"<no value>"* ]]; then
+    if [[ -n "$health_log" ]]; then
         printf '\n    %b── recent health checks ──%b\n' "$dim" "$rst"
-        echo "$health_log" | sed 's/|||/\n/g' | grep -E '^[0-9]{4}-' | tail -3 | while IFS='|' read -r ts_raw code_raw _; do
-            ts="${ts_raw:0:19}"  # Extract datetime (YYYY-MM-DD HH:MM:SS)
+        tail -3 <<< "$health_log" | while IFS='|' read -r ts_raw code_raw; do
+            ts="${ts_raw:0:19}"
             code="${code_raw#exit=}"
-            if [[ -z "$ts" ]]; then continue; fi
+            [[ -z "$ts" ]] && continue
             if [[ "$code" == "0" ]]; then
                 printf '      %b✓%b %s\n' "$grn" "$rst" "$ts"
             else
@@ -1049,7 +1323,7 @@ _check-service service:
         done
     fi
 
-    # Recent logs (last 8 lines)
+    # Recent logs
     printf '\n    %b── recent logs ──%b\n' "$dim" "$rst"
     docker compose logs --tail=8 $svc_names 2>/dev/null | sed 's/^/    /' || echo "    (no logs)"
     printf '\n'
@@ -1059,34 +1333,35 @@ _check-service service:
 _check-prereqs:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Checking prerequisites..."
+    source "{{ helpers }}"
+    log_step "Checking prerequisites…"
     ok=true
     for cmd in docker git; do
         if command -v "$cmd" &>/dev/null; then
-            printf "  \033[32m✓\033[0m %s (%s)\n" "$cmd" "$(command -v $cmd)"
+            log_ok "$cmd ($(command -v $cmd))"
         else
-            printf "  \033[31m✗\033[0m %s\n" "$cmd"
+            log_err "$cmd"
             ok=false
         fi
     done
     if docker compose version &>/dev/null; then
-        printf "  \033[32m✓\033[0m docker compose (%s)\n" "$(docker compose version --short 2>/dev/null)"
+        log_ok "docker compose ($(docker compose version --short 2>/dev/null))"
     else
-        printf "  \033[31m✗\033[0m docker compose\n"
+        log_err "docker compose"
         ok=false
     fi
-    for cmd in just direnv pre-commit python3 fzf; do
+    for cmd in just direnv pre-commit python3 fzf jq yq; do
         if command -v "$cmd" &>/dev/null; then
-            printf "  \033[32m✓\033[0m %s\n" "$cmd"
+            log_ok "$cmd"
         else
-            printf "  \033[33m⚠\033[0m %s (optional)\n" "$cmd"
+            log_warn "$cmd (optional)"
         fi
     done
     echo ""
     if $ok; then
-        echo "✓ All required tools present"
+        log_ok "All required tools present"
     else
-        echo "✗ Missing required tools" >&2
+        log_err "Missing required tools"
         exit 1
     fi
 
@@ -1095,12 +1370,9 @@ _check-prereqs:
 compose service *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    compose="{{ services_dir }}/{{ service }}/compose.yaml"
-    if [[ ! -f "$compose" ]]; then
-        echo "✗ Service '{{ service }}' not found" >&2; exit 1
-    fi
-    svc_names=$(yq -r '.services | keys | .[]' "$compose")
-    docker compose {{ args }} $svc_names
+    source "{{ helpers }}"
+    resolve_service "{{ service }}" "{{ services_dir }}"
+    docker compose {{ args }} $SVC_NAMES
 
 # Edit a service's compose file in $EDITOR
 [group('maintenance')]
