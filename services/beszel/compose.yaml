@@ -1,36 +1,42 @@
+networks:
+  nexus:
+    external: true
 services:
   beszel:
-    image: henrygd/beszel
+    cap_drop:
+      - ALL
     container_name: beszel
-    hostname: beszel
-    user: "1000:1000"
-    healthcheck:
-      test: ["NONE"]
-    labels:
-      homepage.group: Observability
-      homepage.name: Beszel
-      homepage.icon: beszel
-      homepage.description: Server Monitoring Dashboard
-      homepage.href: https://beszel.${DOMAIN}
-      traefik.http.services.beszel.loadbalancer.server.port: 8090
-    ports:
-      - 8090:8090
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
         reservations:
           cpus: '0.1'
-          memory: 64M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    volumes:
-      - ${DATA_PATH}/beszel:/beszel_data
+          memory: 128M
+    healthcheck:
+      test: ['CMD', '/beszel', 'health', '--url', 'http://localhost:8090']
+      interval: 120s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    hostname: beszel
+    image: henrygd/beszel
+    labels:
+      homepage.description: Server Monitoring Dashboard
+      homepage.group: Observability
+      homepage.href: https://beszel.${DOMAIN:?DOMAIN not set}
+      homepage.icon: beszel
+      homepage.name: Beszel
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    ports:
+      - 8090:8090
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
+    volumes:
+      - ./data:/beszel_data

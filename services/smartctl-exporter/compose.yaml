@@ -1,22 +1,9 @@
+networks:
+  nexus:
+    external: true
 services:
   smartctl-exporter:
-    image: quay.io/prometheuscommunity/smartctl-exporter
     container_name: smartctl-exporter
-    hostname: smartctl-exporter
-    # NOTE: Requires root for raw disk access via smartctl
-    privileged: true
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9633/metrics || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    labels:
-      homepage.group: Observability
-      homepage.name: Smartctl Exporter
-      homepage.icon: prometheus
-      homepage.description: SMART Disk Metrics Exporter
-      traefik.enable: "false"
     deploy:
       resources:
         limits:
@@ -25,13 +12,25 @@ services:
         reservations:
           cpus: '0.05'
           memory: 16M
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 15s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9633/metrics || exit 1" ]
+      timeout: 10s
+    hostname: smartctl-exporter
+    image: quay.io/prometheuscommunity/smartctl-exporter
+    labels:
+      homepage.description: SMART Disk Metrics Exporter
+      homepage.group: Observability
+      homepage.icon: prometheus
+      homepage.name: Smartctl Exporter
+      traefik.enable: false
+    networks:
+      - nexus
+    # NOTE: Requires root for raw disk access via smartctl
+    privileged: true
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true

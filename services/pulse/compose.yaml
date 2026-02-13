@@ -1,25 +1,15 @@
+networks:
+  nexus:
+    external: true
 services:
   pulse:
-    image: rcourtman/pulse
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: pulse
-    hostname: pulse
-    # Requires privileged for docker.sock monitoring
-    environment:
-      TZ: ${TZ:-UTC}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:7655 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Dashboard
-      homepage.name: Pulse
-      homepage.icon: pulse
-      homepage.description: Infrastructure Monitoring Dashboard
-      homepage.href: https://pulse.${DOMAIN}
-      traefik.http.services.pulse.loadbalancer.server.port: 7655
-    privileged: true
     deploy:
       resources:
         limits:
@@ -28,23 +18,31 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    # Requires privileged for docker.sock monitoring
+    environment:
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:7655 || exit 1" ]
+      timeout: 10s
+    hostname: pulse
+    image: rcourtman/pulse
+    labels:
+      homepage.description: Infrastructure Monitoring Dashboard
+      homepage.group: Dashboard
+      homepage.href: https://pulse.${DOMAIN:?DOMAIN not set}
+      homepage.icon: pulse
+      homepage.name: Pulse
+    networks:
+      - nexus
+    privileged: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH}/pulse:/data
+      - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true

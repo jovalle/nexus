@@ -5,7 +5,7 @@ services:
     hostname: glances
     # Requires docker.sock and /etc/os-release for system info
     environment:
-      TZ: ${TZ:-America/New_York}
+      TZ: ${TZ:?TZ not set}
       GLANCES_OPT: "-w"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:61208 || exit 1"]
@@ -18,10 +18,9 @@ services:
       homepage.name: Glances
       homepage.icon: glances
       homepage.description: System Monitoring
-      homepage.href: https://glances.${DOMAIN}
+      homepage.href: https://glances.${DOMAIN:?DOMAIN not set}
       homepage.widget.type: glances
       homepage.widget.url: http://glances:61208
-      traefik.http.services.glances.loadbalancer.server.port: 61208
     deploy:
       resources:
         limits:
@@ -33,6 +32,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_add:
+      - SYS_PTRACE
     cap_drop:
       - ALL
     pid: host
@@ -43,7 +44,6 @@ services:
       - /etc/os-release:/etc/os-release:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

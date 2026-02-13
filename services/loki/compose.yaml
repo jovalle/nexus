@@ -1,18 +1,12 @@
+networks:
+  nexus:
+    external: true
 services:
   loki:
-    image: grafana/loki
-    container_name: loki
-    hostname: loki
-    user: "1000:1000"
+    cap_drop:
+      - ALL
     command: -config.file=/etc/loki/local-config.yaml
-    healthcheck:
-      test: ["NONE"]
-    labels:
-      homepage.group: Observability
-      homepage.name: Loki
-      homepage.icon: loki
-      homepage.description: Log Aggregation
-      traefik.enable: "false"
+    container_name: loki
     deploy:
       resources:
         limits:
@@ -21,14 +15,25 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    restart: unless-stopped
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    volumes:
-      - ${DATA_PATH}/loki:/loki
+    # Healthcheck disabled: distroless image has no wget/curl/shell
+    # Loki's /ready endpoint works, but no tools to check it
+    healthcheck:
+      disable: true
+    hostname: loki
+    image: grafana/loki
+    labels:
+      homepage.description: Log Aggregation
+      homepage.group: Observability
+      homepage.icon: loki
+      homepage.name: Loki
+      traefik.enable: false
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
+    volumes:
+      - ./data:/loki

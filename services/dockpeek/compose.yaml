@@ -5,9 +5,9 @@ services:
     hostname: dockpeek
     # Requires docker.sock read access
     environment:
-      USERNAME: ${DOCKPEEK_USERNAME:?dockpeek username not defined}
-      PASSWORD: ${DOCKPEEK_PASSWORD:?dockpeek password not defined}
-      SECRET_KEY: ${DOCKPEEK_SECRET_KEY:?dockpeek secret key not defined}
+      USERNAME: ${DOCKPEEK_USERNAME:?DOCKPEEK_USERNAME not set}
+      PASSWORD: ${DOCKPEEK_PASSWORD:?DOCKPEEK_PASSWORD not set}
+      SECRET_KEY: ${DOCKPEEK_SECRET_KEY:?DOCKPEEK_SECRET_KEY not set}
       TRAEFIK_LABELS: "true"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000 || exit 1"]
@@ -20,8 +20,7 @@ services:
       homepage.name: Dockpeek
       homepage.icon: docker
       homepage.description: Docker Container Monitor
-      homepage.href: https://dockpeek.${DOMAIN}
-      traefik.http.services.dockpeek.loadbalancer.server.port: 8000
+      homepage.href: https://dockpeek.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -42,7 +41,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

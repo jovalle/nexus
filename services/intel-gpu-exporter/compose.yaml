@@ -14,7 +14,7 @@ services:
       homepage.name: Intel GPU Exporter
       homepage.icon: prometheus
       homepage.description: Intel GPU Metrics Exporter
-      traefik.enable: "false"
+      traefik.enable: false
     deploy:
       resources:
         limits:
@@ -33,7 +33,6 @@ services:
       - /dev/dri:/dev/dri
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

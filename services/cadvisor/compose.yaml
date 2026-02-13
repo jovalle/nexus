@@ -14,7 +14,7 @@ services:
       homepage.name: cAdvisor
       homepage.icon: cadvisor
       homepage.description: Container Metrics Exporter
-      traefik.enable: "false"
+      traefik.enable: false
     privileged: true
     command:
       - --housekeeping_interval=30s
@@ -41,7 +41,6 @@ services:
       - /dev/disk/:/dev/disk:ro
     networks:
       - nexus
-
 networks:
   nexus:
     external: true

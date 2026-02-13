@@ -1,25 +1,14 @@
+networks:
+  nexus:
+    external: true
 services:
   dozzle:
-    image: amir20/dozzle
+    cap_drop:
+      - ALL
     container_name: dozzle
-    hostname: dozzle
-    environment:
-      DOZZLE_LEVEL: info
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
-    healthcheck:
-      test: ["CMD", "/dozzle", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Observability
-      homepage.name: Dozzle
-      homepage.icon: dozzle
-      homepage.description: Real-time Container Logs
-      homepage.href: https://dozzle.${DOMAIN}
-      traefik.http.routers.dozzle.middlewares: basic-auth@file
-      traefik.http.services.dozzle.loadbalancer.server.port: 8080
+    depends_on:
+      docker-socket-proxy:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -28,10 +17,26 @@ services:
         reservations:
           cpus: '0.1'
           memory: 32M
-    restart: unless-stopped
+    environment:
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      DOZZLE_LEVEL: info
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD", "/dozzle", "healthcheck" ]
+      timeout: 10s
+    hostname: dozzle
+    image: amir20/dozzle
+    labels:
+      homepage.description: Real-time Container Logs
+      homepage.group: Observability
+      homepage.href: https://dozzle.${DOMAIN:?DOMAIN not set}
+      homepage.icon: dozzle
+      homepage.name: Dozzle
     networks:
       - nexus
-
-networks:
-  nexus:
-    external: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
