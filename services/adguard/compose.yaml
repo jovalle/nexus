@@ -1,39 +1,17 @@
+networks:
+  nexus:
+    external: true
 services:
   adguard:
-    image: adguard/adguardhome
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: adguard
-    hostname: adguard
-    dns:
-      - 76.76.2.2
-      - 76.76.10.2
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Gateway
-      homepage.name: AdGuard Home
-      homepage.icon: adguard-home
-      homepage.description: Ad-Blocking DNS Server
-      homepage.href: https://adguard.nexus.${DOMAIN:?no domain defined}
-      homepage.widget.type: adguard
-      homepage.widget.url: http://adguard
-      homepage.widget.username: ${ADMIN_USERNAME:?admin username not defined}
-      homepage.widget.password: ${ADMIN_PASSWORD:?admin password not defined}
-      traefik.http.routers.adguard.rule: Host(`adguard.nexus.${DOMAIN}`)
-      traefik.http.services.adguard.loadbalancer.server.port: 80
-    ports:
-      - 53:53/tcp
-      - 53:53/udp
-      - 853:853/tcp
-      - 853:853/udp
-      - 3000:3000/tcp
-      - 5443:5443/tcp
-      - 5443:5443/udp
-      - 6061:6060/tcp
-      - 8880:80/tcp
     deploy:
       resources:
         limits:
@@ -42,26 +20,47 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+    dns:
+      - 76.76.2.2
+      - 76.76.10.2
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:80 || exit 1" ]
+      timeout: 10s
+    hostname: adguard
+    image: adguard/adguardhome
+    labels:
+      homepage.description: Ad-Blocking DNS Server
+      homepage.group: Gateway
+      homepage.href: https://adguard.${DOMAIN:?DOMAIN not set}
+      homepage.icon: adguard-home
+      homepage.name: AdGuard Home
+      homepage.widget.password: ${ADGUARD_ADMIN_PASSWORD:?ADGUARD_ADMIN_PASSWORD not set}
+      homepage.widget.type: adguard
+      homepage.widget.url: http://adguard
+      homepage.widget.username: ${ADGUARD_ADMIN_USERNAME:?ADGUARD_ADMIN_USERNAME not set}
+      traefik.http.services.adguard.loadbalancer.server.port: 80
+    networks:
+      nexus:
+        ipv4_address: ${ADGUARD_IP:?ADGUARD_IP not set}
+    ports:
+      - ${HOST_IP:?HOST_IP not set}:53:53/tcp
+      - ${HOST_IP:?HOST_IP not set}:53:53/udp
+      - 853:853/tcp
+      - 853:853/udp
+      - 3000:3000/tcp
+      - 5443:5443/tcp
+      - 5443:5443/udp
+      - 6061:6060/tcp
+      - 8880:80/tcp
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_add:
-      - NET_BIND_SERVICE
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ${DATA_PATH:?data path not defined}/adguard/conf:/opt/adguardhome/conf
-      - ${DATA_PATH}/adguard/work:/opt/adguardhome/work
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./conf:/opt/adguardhome/conf
+      - ./work:/opt/adguardhome/work

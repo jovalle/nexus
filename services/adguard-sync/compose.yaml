@@ -1,0 +1,38 @@
+networks:
+  nexus:
+    external: true
+services:
+  adguard-sync:
+    cap_drop:
+      - ALL
+    command: run --config /config/adguardhome-sync.yaml
+    container_name: adguard-sync
+    depends_on:
+      adguard:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    hostname: adguard-sync
+    image: ghcr.io/bakito/adguardhome-sync
+    labels:
+      homepage.description: AdGuard Config Sync
+      homepage.group: Gateway
+      homepage.icon: adguard-home
+      homepage.name: AdGuard Sync
+    networks:
+      - nexus
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
+    volumes:
+      - ./sync/adguardhome-sync.yaml:/config/adguardhome-sync.yaml:ro
