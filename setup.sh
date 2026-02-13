@@ -703,8 +703,8 @@ setup_network() {
             echo ""
             return
         fi
-        run docker network create nexus
-        info "Docker network 'nexus' created"
+        run docker network create nexus --subnet 172.52.0.0/16 --gateway 172.52.0.1
+        info "Docker network 'nexus' created with subnet 172.52.0.0/16"
     fi
 
     echo ""
