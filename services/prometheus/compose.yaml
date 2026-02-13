@@ -1,28 +1,16 @@
+networks:
+  nexus:
+    external: true
 services:
   prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    hostname: prometheus
-    user: "1000:1000"
+    cap_drop:
+      - ALL
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      homepage.group: Observability
-      homepage.name: Prometheus
-      homepage.icon: prometheus
-      homepage.description: Metrics Collection
-      homepage.href: https://prometheus.${DOMAIN}
-      traefik.http.routers.prometheus.middlewares: basic-auth@file
-      traefik.http.services.prometheus.loadbalancer.server.port: 9090
+    container_name: prometheus
     deploy:
       resources:
         limits:
@@ -31,20 +19,29 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1" ]
+      timeout: 10s
+    hostname: prometheus
+    image: prom/prometheus
+    labels:
+      homepage.description: Metrics Collection
+      homepage.group: Observability
+      homepage.href: https://prometheus.${DOMAIN:?DOMAIN not set}
+      homepage.icon: prometheus
+      homepage.name: Prometheus
+    networks:
+      - nexus
     read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ${DATA_PATH}/prometheus/config:/etc/prometheus:ro
-      - ${DATA_PATH}/prometheus/data:/prometheus
-    networks:
-      - nexus
-
-networks:
-  nexus:
-    external: true
+      - ./config:/etc/prometheus:ro
+      - ./data:/prometheus

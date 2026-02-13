@@ -1,0 +1,56 @@
+---
+global:
+  evaluation_interval: 15s
+  scrape_interval: 15s
+  scrape_timeout: 10s
+scrape_configs:
+  - honor_timestamps: true
+    job_name: prometheus
+    metrics_path: /metrics
+    scheme: http
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - prometheus:9090
+  - job_name: node
+    scrape_interval: 5s
+    static_configs:
+      - labels:
+          instance: nexus
+        targets:
+          - host.docker.internal:9100
+      - labels:
+          instance: stargate
+        targets:
+          - stargate:9100
+  - job_name: grafana
+    static_configs:
+      - targets:
+          - grafana:3000
+  - job_name: cadvisor
+    static_configs:
+      - labels:
+          instance: nexus
+        targets:
+          - cadvisor:8080
+      - labels:
+          instance: stargate
+        targets:
+          - stargate:8081
+  - job_name: plex
+    static_configs:
+      - targets:
+          - plex-exporter:9000
+  - job_name: smartctl
+    static_configs:
+      - targets:
+          - smartctl-exporter:9633
+  - job_name: intel-gpu
+    static_configs:
+      - targets:
+          - intel-gpu-exporter:9091
+  - job_name: docker
+    static_configs:
+      - targets:
+          - host.docker.internal:9323
