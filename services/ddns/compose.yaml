@@ -1,0 +1,33 @@
+services:
+  ddns:
+    cap_drop:
+      - ALL
+    container_name: ddns
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+        reservations:
+          cpus: '0.01'
+          memory: 16M
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN not set}
+      DOMAINS: gateway.${DOMAIN:?DOMAIN not set}
+      IP6_PROVIDER: none
+      PROXIED: "true"
+    healthcheck:
+      test: [ "NONE" ]
+    hostname: ddns
+    image: favonia/cloudflare-ddns
+    labels:
+      homepage.description: Dynamic DNS via Cloudflare
+      homepage.group: Gateway
+      homepage.icon: cloudflare
+      homepage.name: DDNS
+    network_mode: host
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"

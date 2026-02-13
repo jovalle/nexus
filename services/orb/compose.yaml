@@ -1,0 +1,26 @@
+services:
+  orb:
+    container_name: orb
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: [ "NONE" ]
+    hostname: orb
+    image: orbforge/orb
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+      com.centurylinklabs.watchtower.scope: orb
+      homepage.description: Speed Tests & Latency Monitoring
+      homepage.group: Utilities
+      homepage.icon: mdi-speedometer
+      homepage.name: Orb
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./data:/root/.config/orb
