@@ -12,51 +12,29 @@
 # =============================================================================
 
 include:
-  # --- Gateway & Networking ---
   - path: services/adguard/compose.yaml
     env_file:
       - .env
-  - path: services/cloudflared/compose.yaml
+      - services/adguard/.env
+  - path: services/adguard-sync/compose.yaml
     env_file:
       - .env
-      - services/cloudflared/.env
-  - path: services/gluetun/compose.yaml
+  - path: services/agregarr/compose.yaml
     env_file:
       - .env
-      - services/gluetun/.env
-  - path: services/tailscale/compose.yaml
+  - path: services/audiodeck/compose.yaml
     env_file:
       - .env
-      - services/tailscale/.env
-  - path: services/traefik/compose.yaml
+  - path: services/authelia/compose.yaml
     env_file:
       - .env
-      - services/traefik/.env
-  - path: services/whoami/compose.yaml
+      - services/authelia/.env
+      - services/domain-locker/.env
+      - services/immich/.env
+  - path: services/bazarr/compose.yaml
     env_file:
       - .env
-
-  # --- Infrastructure ---
-  - path: services/docker-socket-proxy/compose.yaml
-    env_file:
-      - .env
-  - path: services/mariadb/compose.yaml
-    env_file:
-      - .env
-      - services/mariadb/.env
-  - path: services/postgres/compose.yaml
-    env_file:
-      - .env
-      - services/postgres/.env
-  - path: services/redis/compose.yaml
-    env_file:
-      - .env
-      - services/redis/.env
-  - path: services/valkey/compose.yaml
-    env_file:
-      - .env
-
-  # --- Monitoring & Observability ---
+      - services/bazarr/.env
   - path: services/beszel/compose.yaml
     env_file:
       - .env
@@ -65,161 +43,24 @@ include:
     env_file:
       - .env
       - services/beszel-agent/.env
-  - path: services/cadvisor/compose.yaml
-    env_file:
-      - .env
-  - path: services/dozzle/compose.yaml
-    env_file:
-      - .env
-  - path: services/glances/compose.yaml
-    env_file:
-      - .env
-  - path: services/grafana/compose.yaml
-    env_file:
-      - .env
-      - services/grafana/.env
-  - path: services/intel-gpu-exporter/compose.yaml
-    env_file:
-      - .env
-  - path: services/kromgo/compose.yaml
-    env_file:
-      - .env
-      - services/kromgo/.env
-  - path: services/loggifly/compose.yaml
-    env_file:
-      - .env
-  - path: services/loki/compose.yaml
-    env_file:
-      - .env
-  - path: services/node-exporter/compose.yaml
-    env_file:
-      - .env
-  - path: services/plex-exporter/compose.yaml
-    env_file:
-      - .env
-      - services/plex-exporter/.env
-  - path: services/prometheus/compose.yaml
-    env_file:
-      - .env
-  - path: services/promtail/compose.yaml
-    env_file:
-      - .env
-  - path: services/smartctl-exporter/compose.yaml
-    env_file:
-      - .env
-  - path: services/tracearr/compose.yaml
-    env_file:
-      - .env
-      - services/tracearr/.env
-  - path: services/wud/compose.yaml
-    env_file:
-      - .env
-
-  # --- Media ---
-  - path: services/bazarr/compose.yaml
-    env_file:
-      - .env
-      - services/bazarr/.env
   - path: services/boxarr/compose.yaml
     env_file:
       - .env
-  - path: services/flaresolverr/compose.yaml
+  - path: services/cadvisor/compose.yaml
     env_file:
       - .env
-      - services/flaresolverr/.env
-  - path: services/imdbarr/compose.yaml
+  - path: services/cloudflared/compose.yaml
     env_file:
       - .env
-      - services/imdbarr/.env
-  - path: services/jellyfin/compose.yaml
+      - services/cloudflared/.env
+  - path: services/ddns/compose.yaml
     env_file:
       - .env
-      - services/jellyfin/.env
-  - path: services/lidarr/compose.yaml
+      - services/cloudflared/.env
+  - path: services/docker-socket-proxy/compose.yaml
     env_file:
       - .env
-  - path: services/music-assistant/compose.yaml
-    env_file:
-      - .env
-  - path: services/navidrome/compose.yaml
-    env_file:
-      - .env
-      - services/navidrome/.env
-  - path: services/overseerr/compose.yaml
-    env_file:
-      - .env
-      - services/overseerr/.env
-  - path: services/plex/compose.yaml
-    env_file:
-      - .env
-      - services/plex/.env
-  - path: services/profilarr/compose.yaml
-    env_file:
-      - .env
-      - services/profilarr/.env
-  - path: services/prowlarr/compose.yaml
-    env_file:
-      - .env
-      - services/prowlarr/.env
-  - path: services/pulsarr/compose.yaml
-    env_file:
-      - .env
-  - path: services/qbittorrent/compose.yaml
-    env_file:
-      - .env
-      - services/qbittorrent/.env
-  - path: services/radarr/compose.yaml
-    env_file:
-      - .env
-  - path: services/sabnzbd/compose.yaml
-    env_file:
-      - .env
-      - services/sabnzbd/.env
-  - path: services/sonarr/compose.yaml
-    env_file:
-      - .env
-  - path: services/tautulli/compose.yaml
-    env_file:
-      - .env
-      - services/tautulli/.env
-  - path: services/unpackerr/compose.yaml
-    env_file:
-      - .env
-
-  # --- Productivity & Apps ---
-  - path: services/excalidraw/compose.yaml
-    env_file:
-      - .env
-  - path: services/filebrowser/compose.yaml
-    env_file:
-      - .env
-  - path: services/miniflux/compose.yaml
-    env_file:
-      - .env
-      - services/miniflux/.env
-  - path: services/nextcloud/compose.yaml
-    env_file:
-      - .env
-      - services/nextcloud/.env
-  - path: services/ntfy/compose.yaml
-    env_file:
-      - .env
-  - path: services/paperless/compose.yaml
-    env_file:
-      - .env
-      - services/paperless/.env
-  - path: services/searxng/compose.yaml
-    env_file:
-      - .env
-  - path: services/syncthing/compose.yaml
-    env_file:
-      - .env
-  - path: services/wallos/compose.yaml
-    env_file:
-      - .env
-
-  # --- Dashboards & Management ---
-  - path: services/agregarr/compose.yaml
+  - path: services/dockhand/compose.yaml
     env_file:
       - .env
   - path: services/dockpeek/compose.yaml
@@ -230,9 +71,44 @@ include:
     env_file:
       - .env
       - services/domain-locker/.env
-  - path: services/harborguard/compose.yaml
+  - path: services/dozzle/compose.yaml
     env_file:
       - .env
+  - path: services/duplicati/compose.yaml
+    env_file:
+      - .env
+      - services/duplicati/.env
+  - path: services/excalidraw/compose.yaml
+    env_file:
+      - .env
+  - path: services/filebrowser/compose.yaml
+    env_file:
+      - .env
+  - path: services/flaresolverr/compose.yaml
+    env_file:
+      - .env
+      - services/flaresolverr/.env
+  - path: services/garage/compose.yaml
+    env_file:
+      - .env
+      - services/garage/.env
+  - path: services/glances/compose.yaml
+    env_file:
+      - .env
+  - path: services/gluetun/compose.yaml
+    env_file:
+      - .env
+      - services/gluetun/.env
+  - path: services/golink/compose.yaml
+    env_file:
+      - .env
+  - path: services/gotenberg/compose.yaml
+    env_file:
+      - .env
+  - path: services/grafana/compose.yaml
+    env_file:
+      - .env
+      - services/grafana/.env
   - path: services/homarr/compose.yaml
     env_file:
       - .env
@@ -243,73 +119,203 @@ include:
   - path: services/homepage/compose.yaml
     env_file:
       - .env
-  - path: services/mytabs/compose.yaml
+  - path: services/imdbarr/compose.yaml
     env_file:
       - .env
-  - path: services/pgadmin/compose.yaml
+      - services/imdbarr/.env
+  - path: services/immich/compose.yaml
     env_file:
       - .env
-      - services/pgadmin/.env
-  - path: services/wizarr/compose.yaml
+      - services/immich/.env
+  - path: services/intel-gpu-exporter/compose.yaml
     env_file:
       - .env
-
-  # --- Utilities ---
-  - path: services/audiodeck/compose.yaml
+  - path: services/jellyfin/compose.yaml
     env_file:
       - .env
-  - path: services/duplicati/compose.yaml
+      - services/jellyfin/.env
+  - path: services/kromgo/compose.yaml
     env_file:
       - .env
-      - services/duplicati/.env
-  - path: services/gotenberg/compose.yaml
+      - services/kromgo/.env
+  - path: services/lidarr/compose.yaml
     env_file:
       - .env
+      - services/lidarr/.env
+  - path: services/loggifly/compose.yaml
+    env_file:
+      - .env
+  - path: services/loki/compose.yaml
+    env_file:
+      - .env
+  - path: services/mariadb/compose.yaml
+    env_file:
+      - .env
+      - services/mariadb/.env
   - path: services/meilisearch/compose.yaml
     env_file:
       - .env
       - services/meilisearch/.env
+  - path: services/miniflux/compose.yaml
+    env_file:
+      - .env
+      - services/miniflux/.env
+  - path: services/music-assistant/compose.yaml
+    env_file:
+      - .env
+  - path: services/mytabs/compose.yaml
+    env_file:
+      - .env
+  - path: services/navidrome/compose.yaml
+    env_file:
+      - .env
+      - services/navidrome/.env
   - path: services/newt/compose.yaml
     env_file:
       - .env
       - services/newt/.env
+  - path: services/nextcloud/compose.yaml
+    env_file:
+      - .env
+      - services/nextcloud/.env
+  - path: services/node-exporter/compose.yaml
+    env_file:
+      - .env
+  - path: services/ntfy/compose.yaml
+    env_file:
+      - .env
   - path: services/omni-tools/compose.yaml
+    env_file:
+      - .env
+  - path: services/orb/compose.yaml
+    env_file:
+      - .env
+  - path: services/overseerr/compose.yaml
+    env_file:
+      - .env
+      - services/overseerr/.env
+  - path: services/paperless/compose.yaml
+    env_file:
+      - .env
+      - services/paperless/.env
+  - path: services/pgadmin/compose.yaml
+    env_file:
+      - .env
+      - services/pgadmin/.env
+  - path: services/plex/compose.yaml
+    env_file:
+      - .env
+      - services/plex/.env
+  - path: services/plex-exporter/compose.yaml
+    env_file:
+      - .env
+      - services/plex-exporter/.env
+      - services/plex/.env
+  - path: services/postgres/compose.yaml
+    env_file:
+      - .env
+      - services/postgres/.env
+  - path: services/profilarr/compose.yaml
+    env_file:
+      - .env
+      - services/profilarr/.env
+  - path: services/prometheus/compose.yaml
+    env_file:
+      - .env
+  - path: services/promtail/compose.yaml
+    env_file:
+      - .env
+  - path: services/prowlarr/compose.yaml
+    env_file:
+      - .env
+      - services/prowlarr/.env
+  - path: services/pulsarr/compose.yaml
     env_file:
       - .env
   - path: services/pulse/compose.yaml
     env_file:
       - .env
+  - path: services/qbittorrent/compose.yaml
+    env_file:
+      - .env
+      - services/qbittorrent/.env
+  - path: services/radarr/compose.yaml
+    env_file:
+      - .env
+      - services/radarr/.env
+  - path: services/redis/compose.yaml
+    env_file:
+      - .env
+      - services/redis/.env
+  - path: services/sabnzbd/compose.yaml
+    env_file:
+      - .env
+      - services/sabnzbd/.env
+  - path: services/searxng/compose.yaml
+    env_file:
+      - .env
+  - path: services/smartctl-exporter/compose.yaml
+    env_file:
+      - .env
+  - path: services/sonarr/compose.yaml
+    env_file:
+      - .env
+      - services/sonarr/.env
   - path: services/stringer/compose.yaml
     env_file:
       - .env
       - services/stringer/.env
+  - path: services/syncthing/compose.yaml
+    env_file:
+      - .env
+  - path: services/tailscale/compose.yaml
+    env_file:
+      - .env
+      - services/tailscale/.env
+  - path: services/tautulli/compose.yaml
+    env_file:
+      - .env
+      - services/tautulli/.env
   - path: services/tika/compose.yaml
     env_file:
       - .env
+  - path: services/tracearr/compose.yaml
+    env_file:
+      - .env
+      - services/tracearr/.env
+  - path: services/traefik/compose.yaml
+    env_file:
+      - .env
+      - services/traefik/.env
   - path: services/trala/compose.yaml
+    env_file:
+      - .env
+  - path: services/unpackerr/compose.yaml
+    env_file:
+      - .env
+      - services/unpackerr/.env
+      - services/lidarr/.env
+      - services/radarr/.env
+      - services/sonarr/.env
+  - path: services/uptime-kuma/compose.yaml
+    env_file:
+      - .env
+  - path: services/valkey/compose.yaml
+    env_file:
+      - .env
+  - path: services/wallos/compose.yaml
     env_file:
       - .env
   - path: services/watchtower/compose.yaml
     env_file:
       - .env
       - services/watchtower/.env
-
-  # --- Photo & Backup ---
-  - path: services/immich/compose.yaml
+  - path: services/whoami/compose.yaml
     env_file:
       - .env
-      - services/immich/.env
-
-  # --- AI & Voice ---
-  - path: services/wyoming/compose.yaml
+  - path: services/wizarr/compose.yaml
     env_file:
       - .env
-
-  # --- Added by sync 2026-02-08 ---
-
-  # --- Added by sync 2026-02-08 ---
-  - path: services/garage/compose.yaml
+  - path: services/wud/compose.yaml
     env_file:
       - .env
-      - services/garage/.env
-
