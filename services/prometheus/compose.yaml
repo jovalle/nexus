@@ -19,6 +19,8 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    extra_hosts:
+      - host.docker.internal:host-gateway
     healthcheck:
       interval: 30s
       retries: 3

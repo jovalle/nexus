@@ -49,7 +49,19 @@ scrape_configs:
   - job_name: intel-gpu
     static_configs:
       - targets:
-          - intel-gpu-exporter:9091
+          - intel-gpu-exporter:9090
+  - job_name: cloudflared
+    static_configs:
+      - targets:
+          - cloudflared:60123
+  - job_name: loki
+    static_configs:
+      - targets:
+          - loki:3100
+  - job_name: promtail
+    static_configs:
+      - targets:
+          - promtail:9080
   - job_name: docker
     static_configs:
       - targets:
