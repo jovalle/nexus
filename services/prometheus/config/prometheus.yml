@@ -19,7 +19,7 @@ scrape_configs:
       - labels:
           instance: nexus
         targets:
-          - host.docker.internal:9100
+          - node-exporter:9100
       - labels:
           instance: stargate
         targets:

@@ -4,7 +4,7 @@
 
 # Nexus
 
-![Node Uptime](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=node_uptime&style=flat&label=uptime) ![CPU Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=node_cpu_usage&style=flat&label=cpu) ![Memory Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=node_memory_usage&style=flat&label=memory) ![Docker Containers](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=docker_containers_running&style=flat&label=running)
+![Uptime](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_uptime&style=flat&label=uptime) ![CPU Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_cpu_usage&style=flat&label=cpu) ![Memory Usage](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_memory_usage&style=flat&label=memory) ![Containers](https://img.shields.io/endpoint?url=https://stat.techn.is/query?metric=nexus_containers_running&style=flat&label=running)
 
 </div>
 
