@@ -17,11 +17,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '8.0'
+          memory: 8G
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1G
     environment:
       DB_DATABASE_NAME: ${IMMICH_DB_NAME:?IMMICH_DB_NAME not set}
       DB_HOSTNAME: ${IMMICH_DB_HOSTNAME:?IMMICH_DB_HOSTNAME not set}
@@ -29,7 +29,6 @@ services:
       DB_USERNAME: ${IMMICH_DB_USER:?IMMICH_DB_USER not set}
       IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
       REDIS_HOSTNAME: redis
-      UPLOAD_LOCATION: /usr/src/app/upload
     healthcheck:
       interval: 30s
       retries: 3
@@ -47,7 +46,6 @@ services:
       homepage.widget.key: ${IMMICH_API_KEY:?IMMICH_API_KEY not set}
       homepage.widget.type: immich
       homepage.widget.url: http://immich-server:2283
-      traefik.http.routers.immich-server.middlewares: internal@file
       traefik.http.routers.immich-server.rule: Host(`immich.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.immich.rule: Host(`photos.${DOMAIN:?DOMAIN not set}`)
       traefik.http.routers.immich.service: immich-server
@@ -63,8 +61,7 @@ services:
       - /tmp:rw,noexec,nosuid,size=256m
     user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
-      - ./upload:/usr/src/app/upload
-      - ${MEDIA_PATH:?MEDIA_PATH not set}/photos:/usr/src/app/external:ro
+      - ./data:/data
   immich-ml:
     cap_drop:
       - ALL
