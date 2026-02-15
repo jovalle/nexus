@@ -3,6 +3,7 @@ services:
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
+      - KILL
       - SETGID
       - SETUID
     cap_drop:
