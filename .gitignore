@@ -138,7 +138,6 @@ services/navidrome/data/
 services/nextcloud/data/
 services/nextcloud/web/
 services/orb/data/
-services/overseerr/data/
 services/plex/data/
 services/postgres/data/
 services/profilarr/data/
@@ -148,6 +147,7 @@ services/radarr/data/
 services/redis/data/
 services/sabnzbd/data/
 services/searxng/data/
+services/seerr/data/
 services/sonarr/data/
 services/stringer/data/
 services/tailscale/data/

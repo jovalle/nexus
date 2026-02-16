@@ -190,10 +190,6 @@ include:
   - path: services/orb/compose.yaml
     env_file:
       - .env
-  - path: services/overseerr/compose.yaml
-    env_file:
-      - .env
-      - services/overseerr/.env
   - path: services/paperless/compose.yaml
     env_file:
       - .env
@@ -254,6 +250,10 @@ include:
   - path: services/searxng/compose.yaml
     env_file:
       - .env
+  - path: services/seerr/compose.yaml
+    env_file:
+      - .env
+      - services/seerr/.env
   - path: services/smartctl-exporter/compose.yaml
     env_file:
       - .env

@@ -2,7 +2,7 @@ networks:
   nexus:
     external: true
 services:
-  overseerr:
+  seerr:
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -10,7 +10,7 @@ services:
       - SETUID
     cap_drop:
       - ALL
-    container_name: overseerr
+    container_name: seerr
     deploy:
       resources:
         limits:
@@ -20,8 +20,6 @@ services:
           cpus: '0.25'
           memory: 128M
     environment:
-      PGID: ${PGID:?PGID not set}
-      PUID: ${PUID:?PUID not set}
       TZ: ${TZ:?TZ not set}
     healthcheck:
       interval: 30s
@@ -29,17 +27,18 @@ services:
       start_period: 60s
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:5055/api/v1/status || exit 1" ]
       timeout: 10s
-    hostname: overseerr
-    image: lscr.io/linuxserver/overseerr
+    hostname: seerr
+    image: ghcr.io/seerr-team/seerr
+    init: true
     labels:
       homepage.description: Media Request Manager
       homepage.group: Media Automation
-      homepage.href: https://overseerr.${DOMAIN:?DOMAIN not set}
+      homepage.href: https://seerr.${DOMAIN:?DOMAIN not set}
       homepage.icon: overseerr
-      homepage.name: Overseerr
+      homepage.name: Seerr
       homepage.widget.key: ${OVERSEERR_API_KEY:?OVERSEERR_API_KEY not set}
       homepage.widget.type: overseerr
-      homepage.widget.url: http://overseerr:5055
+      homepage.widget.url: http://seerr:5055
     networks:
       - nexus
     ports:
@@ -50,4 +49,4 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     volumes:
-      - ./data:/config
+      - ./data:/app/config
