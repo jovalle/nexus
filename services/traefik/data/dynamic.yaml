@@ -60,6 +60,9 @@ http:
     gatus:
       rule: 'Host(`gatus.{{ env "DOMAIN" }}`) || Host(`status.{{ env "DOMAIN" }}`)'
       service: "gatus"
+    golink:
+      rule: 'Host(`go.{{ env "DOMAIN" }}`)'
+      service: "golink"
     proxmox:
       rule: 'Host(`proxmox.{{ env "DOMAIN" }}`) || Host(`pve.{{ env "DOMAIN" }}`)'
       service: "proxmox"
@@ -83,6 +86,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://100.100.1.1:8181"
+    golink:
+      loadBalancer:
+        servers:
+          - url: "http://golink:80"
     proxmox:
       loadBalancer:
         servers:
