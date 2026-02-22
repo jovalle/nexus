@@ -13,7 +13,6 @@
 .local/
 
 # persistent data & backups
-docker/
 stacks/
 backups/
 
@@ -114,17 +113,22 @@ services/grafana/data/data/
 services/grafana/data/plugins/
 
 # Services with data/ as whole app state (ignored)
+services/adguard-sync/sync/adguardhome-sync.yaml
+services/adguard/conf/AdGuardHome.yaml
 services/agregarr/data/
 services/authelia/data/
 services/bazarr/data/
+services/beszel-agent/data/
 services/beszel/data/
 services/boxarr/data/
 services/dockhand/data/
 services/excalidraw/data/
 services/flaresolverr/data/
+services/garage/config/garage.toml
 services/gluetun/data/
 services/golink/data/
 services/homarr/data/
+services/homepage/data/
 services/jellyfin/data/
 services/kromgo/data/
 services/lidarr/data/
@@ -156,12 +160,12 @@ services/tracearr/data/
 services/trala/data/
 services/uptime-kuma/data/
 services/valkey/data/
+services/wallos/db/
+services/wallos/logos/
 services/watchtower/data/
 services/wizarr/database/
 services/wizarr/wizard/
 services/wizarr/wizard_steps/
-services/wallos/db/
-services/wallos/logos/
 services/wyoming/data/
 
 # Syncthing certs and keys (sensitive)
@@ -194,6 +198,3 @@ services/ntfy/config/server.yml
 # editor artifacts
 * copy.yaml
 * copy
-services/beszel-agent/data/fingerprint
-services/adguard/conf/AdGuardHome.yaml
-services/adguard-sync/sync/adguardhome-sync.yaml

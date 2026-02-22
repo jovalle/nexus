@@ -1,0 +1,38 @@
+# ntfy server configuration for Nexus
+# Docs: https://docs.ntfy.sh/config/
+
+listen-http: ":80"
+
+# Public URL is supplied by docker env (NTFY_BASE_URL)
+
+# Persist cache + auth data in the mapped cache volume
+cache-file: "/var/cache/ntfy/cache.db"
+auth-file: "/var/cache/ntfy/user.db"
+auth-default-access: "deny-all"
+
+# Private deployment defaults
+enable-signup: false
+enable-login: true
+require-login: true
+enable-reservations: false
+behind-proxy: true
+proxy-forwarded-header: "X-Forwarded-For"
+
+# Rate limiting and abuse protection
+visitor-subscription-limit: 30
+visitor-request-limit-burst: 60
+visitor-request-limit-replenish: "5s"
+visitor-message-daily-limit: 0
+visitor-email-limit-burst: 16
+visitor-email-limit-replenish: "1h"
+visitor-auth-failure-limit-burst: 10
+visitor-auth-failure-limit-replenish: "5m"
+
+# Operational
+keepalive-interval: "45s"
+manager-interval: "1m"
+global-topic-limit: 15000
+enable-web-app: true
+enable-metrics: true
+log-level: "info"
+log-format: "json"

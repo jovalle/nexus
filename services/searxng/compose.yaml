@@ -43,5 +43,6 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
       - ./data:/etc/searxng

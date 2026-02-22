@@ -17,6 +17,10 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - sed -i '/chown -R tracearr:tracearr \/app/d' /entrypoint.sh && exec /entrypoint.sh supervisord -c /etc/supervisor/conf.d/supervisord.conf
     environment:
       LOG_LEVEL: ${TRACEARR_LOG_LEVEL:?TRACEARR_LOG_LEVEL not set}
       TZ: ${TZ:?TZ not set}
