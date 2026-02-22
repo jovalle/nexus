@@ -798,9 +798,9 @@ show_summary() {
         echo "  Next steps:"
         echo "    1. cd ${NEXUS_DIR}"
         echo "    2. Review and edit .env"
-        echo "    3. just ls              — list services"
-        echo "    4. just up <service>    — start a service"
-        echo "    5. just ps              — check status"
+        echo "    3. just services        — list services"
+        echo "    4. just run <service>   — run a service"
+        echo "    5. just show            — check status"
     else
         echo "  Next steps:"
         echo "    1. Clone the nexus repo"

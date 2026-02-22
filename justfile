@@ -11,30 +11,37 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments := true
 
 # Paths (override via .env or environment)
-root_dir     := justfile_directory()
+
+root_dir := justfile_directory()
 services_dir := root_dir / "services"
-scripts_dir  := root_dir / "scripts"
-archive_dir  := root_dir / "archive"
-backup_dir   := root_dir / "backups"
-data_path    := env("DATA_PATH", root_dir / "docker")
+scripts_dir := root_dir / "scripts"
+archive_dir := root_dir / "archive"
+backup_dir := root_dir / "backups"
+data_path := env("DATA_PATH", root_dir / "docker")
 
 # Timestamp for file naming
+
 ts := `date +%Y%m%d-%H%M%S`
 
 # Go template escape helpers — Docker --format uses Go templates which
 # conflict with just's own {{ }} interpolation. These let us write
 # {{ _l }}.Names{{ _r }} to produce the literal {{.Names}}.
+
+[private]
 _l := "{" + "{"
+[private]
 _r := "}" + "}"
 
 # ANSI color codes for output
-RED   := `printf '\033[31m'`
+
+RED := `printf '\033[31m'`
 GREEN := `printf '\033[32m'`
-YLW   := `printf '\033[33m'`
-DIM   := `printf '\033[2m'`
-RST   := `printf '\033[0m'`
+YLW := `printf '\033[33m'`
+DIM := `printf '\033[2m'`
+RST := `printf '\033[0m'`
 
 # Shared helpers (source in bash recipes)
+
 helpers := scripts_dir / "helpers.sh"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
@@ -49,12 +56,32 @@ helpers := scripts_dir / "helpers.sh"
 # ║  SERVICE MANAGEMENT                                                        ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 
-# Start a service (or all services)
+# Build a service image from its compose file
 [group('manage')]
-start *service:
+build *target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=()
+    if [[ -n "{{ target }}" ]]; then
+        read -r -a args <<< "{{ target }}"
+    fi
+    if (( ${#args[@]} != 1 )); then
+        echo "Usage: just build <service>" >&2
+        exit 1
+    fi
+    just build-service "${args[0]}"
+
+# Run a service (or all services)
+[group('manage')]
+run *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
+
+    run_args=()
+    if [[ -n "{{ service }}" ]]; then
+        read -r -a run_args <<< "{{ service }}"
+    fi
 
     # --- Detect stale/orphan containers (single docker call) ---
     tmpps=$(mktemp)
@@ -91,7 +118,7 @@ start *service:
             echo "  • $c"
         done
         echo ""
-        read -rp "Remove these containers and recreate? [Y/n] " ans
+        read -rp "Remove these containers and continue running services? [Y/n] " ans
         if [[ "${ans:-Y}" =~ ^[Yy]$ ]]; then
             for c in "${conflicts[@]}"; do
                 log_step "Removing $c"
@@ -104,7 +131,7 @@ start *service:
 
     # --- Normal up flow ---
     if [[ -z "{{ service }}" ]]; then
-        log_step "Starting all services…"
+        log_step "Running all services…"
         if ! output=$(docker compose up -d --remove-orphans 2>&1); then
             echo "$output"
             log_err "docker compose up failed"
@@ -114,12 +141,12 @@ start *service:
         running=$(grep -c ' Running' <<< "$output" || true)
         errors=$(grep -iE 'error|failed' <<< "$output" || true)
         [[ -n "$errors" ]] && echo "$errors"
-        log_ok "All services started ($started created, $running already running)"
+        log_ok "All services running ($started created, $running already running)"
     else
         resolve_service "{{ service }}" "{{ services_dir }}"
-        log_step "Starting {{ service }}…"
+        log_step "Running {{ service }}…"
         docker compose up -d --remove-orphans $SVC_NAMES
-        log_ok "{{ service }} started"
+        log_ok "{{ service }} is running"
     fi
 
 # Stop a service (or all services) — removes containers and networks
@@ -157,9 +184,9 @@ restart *service:
         log_ok "{{ service }} restarted"
     fi
 
-# Recreate a service (pull + force-recreate)
+# Rebuild a service (pull + force-recreate)
 [group('manage')]
-recreate service:
+rebuild service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -176,24 +203,112 @@ update *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
-    if [[ -z "{{ service }}" ]]; then
+
+    args=()
+    if [[ -n "{{ service }}" ]]; then
+        read -r -a args <<< "{{ service }}"
+    fi
+
+    force=false
+    target=""
+    for arg in "${args[@]}"; do
+        if [[ "$arg" == "--force" ]]; then
+            force=true
+            continue
+        fi
+        if [[ -z "$target" ]]; then
+            target="$arg"
+            continue
+        fi
+        log_err "Unexpected argument: $arg"
+        echo "Usage: just update [service] [--force]" >&2
+        exit 1
+    done
+
+    candidate_services=()
+    if [[ -z "$target" ]]; then
+        mapfile -t candidate_services < <(docker compose config --services)
         log_step "Pulling latest images for all services…"
+    else
+        resolve_service "$target" "{{ services_dir }}"
+        mapfile -t candidate_services < <(printf '%s\n' "$SVC_NAMES")
+        log_step "Pulling latest images for $target…"
+    fi
+
+    compose_json=$(docker compose config --format json)
+    declare -A svc_image=()
+    for svc in "${candidate_services[@]}"; do
+        [[ -z "$svc" ]] && continue
+        image_ref=$(jq -r --arg svc "$svc" '.services[$svc].image // empty' <<< "$compose_json")
+        [[ -z "$image_ref" ]] && continue
+        svc_image["$svc"]="$image_ref"
+    done
+
+    declare -A pre_ids=() post_ids=()
+    for svc in "${candidate_services[@]}"; do
+        image_ref="${svc_image[$svc]:-}"
+        [[ -z "$image_ref" ]] && continue
+        pre_ids["$svc"]=$(docker image inspect "$image_ref" --format '{{ _l }}.Id{{ _r }}' 2>/dev/null || true)
+    done
+
+    if [[ -z "$target" ]]; then
         docker compose pull 2>&1
+    else
+        docker compose pull $SVC_NAMES 2>&1
+    fi
+
+    for svc in "${candidate_services[@]}"; do
+        image_ref="${svc_image[$svc]:-}"
+        [[ -z "$image_ref" ]] && continue
+        post_ids["$svc"]=$(docker image inspect "$image_ref" --format '{{ _l }}.Id{{ _r }}' 2>/dev/null || true)
+    done
+
+    impacted=()
+    for svc in "${candidate_services[@]}"; do
+        image_ref="${svc_image[$svc]:-}"
+        [[ -z "$image_ref" ]] && continue
+        pre="${pre_ids[$svc]:-}"
+        post="${post_ids[$svc]:-}"
+        if [[ -n "$post" && "$pre" != "$post" ]]; then
+            impacted+=("$svc")
+        fi
+    done
+
+    if [[ "$force" != true ]]; then
+        if (( ${#impacted[@]} == 0 )); then
+            if [[ -z "$target" ]]; then
+                log_ok "Everything is up to date"
+            else
+                log_ok "$target is up to date"
+            fi
+            exit 0
+        fi
+
+        echo "Impacted services (image changed):"
+        for svc in "${impacted[@]}"; do
+            echo "  • $svc"
+        done
+
+        read -rp "Proceed with update? [y/N] " confirm
+        if [[ ! "${confirm:-}" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+            log_warn "Update aborted"
+            exit 0
+        fi
+    fi
+
+    if [[ -z "$target" ]]; then
         log_step "Bringing services up…"
         docker compose up -d --remove-orphans
         log_ok "All services updated"
     else
-        resolve_service "{{ service }}" "{{ services_dir }}"
-        log_step "Pulling latest images for {{ service }}…"
-        docker compose pull $SVC_NAMES 2>&1
-        log_step "Bringing {{ service }} up…"
+        log_step "Bringing $target up…"
         docker compose up -d --remove-orphans $SVC_NAMES
-        log_ok "{{ service }} updated"
+        log_ok "$target updated"
     fi
 
 # Build and run service from local Dockerfile (requires compose.local.yaml)
 [group('manage')]
-build-local service:
+build-service service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -224,7 +339,7 @@ build-local service:
 
 # Show container status for a service (or all)
 [group('inspect')]
-status *service:
+show *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -301,16 +416,20 @@ status *service:
         docker compose -f "$SVC_COMPOSE" ps
     fi
 
-# List services, backups, or archives
+# Show service catalog with optional name filter
 [group('inspect')]
-list *what:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "${1:-}" in
-        backups)    just _list-backups ;;
-        archives)   just _list-archives ;;
-        *)          just _list-services "$@" ;;
-    esac
+services *filter:
+    @just _list-services {{ filter }}
+
+# Show backup catalog
+[group('inspect')]
+backups:
+    @just _list-backups
+
+# Show retired services
+[group('inspect')]
+archives:
+    @just _list-archives
 
 [private]
 _list-services *filter:
@@ -375,41 +494,20 @@ _list-services *filter:
     echo "Total: $total  Running: $up  Stopped: $down"
     rm -f "$tmpfile"
 
+[private]
+_service-names:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for dir in "{{ services_dir }}"/*/; do
+        svc=$(basename "$dir")
+        [[ "$svc" == .* ]] && continue
+        [[ -d "$dir" ]] || continue
+        echo "$svc"
+    done
+
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  LOGGING                                                                   ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
-
-# Show recent logs: `just log <service> [lines]`, `just log since <service> <time>`
-[group('log')]
-log *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "${1:-}" in
-        since)
-            service="${2:?Usage: just log since <service> <time>}"
-            since="${3:?Usage: just log since <service> <time>}"
-            just _log-since "$service" "$since"
-            ;;
-        "")
-            echo "Usage: just log <service> [lines]" >&2
-            echo "       just log since <service> <time>" >&2
-            exit 1
-            ;;
-        *)
-            service="$1"; shift
-            lines="${1:-200}"
-            just _log-snapshot "$service" "$lines"
-            ;;
-    esac
-
-# Show last N lines of logs (non-following)
-[private]
-_log-snapshot service lines="200":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source "{{ helpers }}"
-    resolve_service "{{ service }}" "{{ services_dir }}"
-    docker compose logs --tail={{ lines }} $SVC_NAMES
 
 # Follow (tail) live logs for a service
 [group('log')]
@@ -420,22 +518,13 @@ tail service *args:
     resolve_service "{{ service }}" "{{ services_dir }}"
     docker compose logs -f --tail=100 $SVC_NAMES {{ args }}
 
-# Show logs since a time (e.g. "1h", "30m", "2024-01-01")
-[private]
-_log-since service since:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source "{{ helpers }}"
-    resolve_service "{{ service }}" "{{ services_dir }}"
-    docker compose logs --since={{ since }} --tail=500 $SVC_NAMES
-
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  DEBUGGING                                                                 ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 
 # Open a shell inside a running container
 [group('debug')]
-shell service *shell_cmd:
+enter service *shell_cmd:
     #!/usr/bin/env bash
     set -euo pipefail
     cmd="{{ shell_cmd }}"
@@ -450,7 +539,7 @@ shell service *shell_cmd:
 
 # Show resource usage for a service (or all)
 [group('debug')]
-top *service:
+watch *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -465,16 +554,20 @@ top *service:
 
 # Inspect a service's compose config (resolved)
 [group('debug')]
-config service:
+render target *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
-    resolve_service "{{ service }}" "{{ services_dir }}"
+    if [[ "{{ target }}" == "templates" ]]; then
+        just _render_templates
+        exit 0
+    fi
+    resolve_service "{{ target }}" "{{ services_dir }}"
     docker compose config $SVC_NAMES
 
 # Validate compose file(s) for a service (or all)
 [group('debug')]
-validate *service:
+verify *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -588,7 +681,7 @@ inspect service:
 
 # Create a new service from template
 [group('expand')]
-new service:
+create service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -597,14 +690,14 @@ new service:
         log_err "Service '{{ service }}' already exists at $target"
         exit 1
     fi
-    # Check if there's an archived version
-    archived="{{ archive_dir }}/{{ service }}"
-    if [[ -d "$archived" ]]; then
-        log_warn "Found archived version of '{{ service }}'."
-        read -p "Restore from archive instead? [y/N] " restore
+    # Check if there's a retired version
+    retired_path="{{ archive_dir }}/{{ service }}"
+    if [[ -d "$retired_path" ]]; then
+        log_warn "Found retired version of '{{ service }}'."
+        read -p "Revive it instead? [y/N] " restore
         if [[ "$restore" =~ ^[Yy]$ ]]; then
-            mv "$archived" "$target"
-            log_ok "Restored {{ service }} from archive"
+            mv "$retired_path" "$target"
+            log_ok "Revived {{ service }} from retired services"
             exit 0
         fi
     fi
@@ -670,12 +763,12 @@ new service:
     echo "Next steps:"
     echo "  1. Edit $target/compose.yaml — fill in <IMAGE>, <PORT>, etc."
     echo "  2. Add any required env vars to .env"
-    echo "  3. Run: just validate {{ service }}"
-    echo "  4. Run: just start {{ service }}"
+    echo "  3. Run: just verify {{ service }}"
+    echo "  4. Run: just run {{ service }}"
 
 # Duplicate an existing service as a starting point
 [group('expand')]
-clone source target:
+copy source target:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -687,19 +780,19 @@ clone source target:
     if [[ -d "$dst" ]]; then
         log_err "Target '{{ target }}' already exists"; exit 1
     fi
-    log_step "Cloning {{ source }} → {{ target }}…"
+    log_step "Copying {{ source }} → {{ target }}…"
     cp -r "$src" "$dst"
     sed -i "s/{{ source }}/{{ target }}/g" "$dst/compose.yaml"
-    log_ok "Cloned {{ source }} → {{ target }}"
+    log_ok "Copied {{ source }} → {{ target }}"
     echo "  Edit {{ services_dir }}/{{ target }}/compose.yaml to customize"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  ARCHIVE — Gracefully Decommission Services                                ║
+# ║  RETIRE — Gracefully Decommission Services                                 ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 
-# Archive a service: stop gracefully, backup config, move to archive
-[group('archive')]
-archive service:
+# Retire a service: stop gracefully, backup config, move to retired services
+[group('retire')]
+retire service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -710,9 +803,14 @@ archive service:
         log_err "Service '{{ service }}' not found"; exit 1
     fi
     printf '╭%62s╮\n' '' | tr ' ' '─'
-    printf '│  %-60s│\n' 'Archiving: {{ service }}'
+    printf '│  %-60s│\n' 'Retiring: {{ service }}'
     printf '╰%62s╯\n' '' | tr ' ' '─'
     echo ""
+    read -rp "Continue retiring {{ service }}? [y/N] " confirm
+    if [[ ! "${confirm:-}" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+        log_warn "Retire cancelled"
+        exit 0
+    fi
     # 1. Stop the service gracefully
     if [[ -f "$compose" ]]; then
         log_step "① Stopping {{ service }}…"
@@ -720,17 +818,17 @@ archive service:
         docker compose stop --timeout 30 $svc_names 2>&1 | sed 's/^/   /' || true
         docker compose rm -f $svc_names 2>&1 | sed 's/^/   /' || true
     fi
-    # 2. Backup the config before archiving
+    # 2. Backup the config before retiring
     log_step "② Backing up config…"
     mkdir -p "{{ backup_dir }}/retired"
     tar -czf "{{ backup_dir }}/retired/{{ service }}-{{ ts }}.tar.gz" \
         -C "{{ services_dir }}" "{{ service }}" 2>/dev/null || true
-    # 3. Move to archive
-    log_step "③ Archiving…"
+    # 3. Move to retired services
+    log_step "③ Retiring…"
     mkdir -p "{{ archive_dir }}"
     if [[ -d "$dst" ]]; then
         mv "$src" "${dst}-{{ ts }}"
-        echo "  (previous archive exists, saved as {{ service }}-{{ ts }})"
+        echo "  (previous retired version exists, saved as {{ service }}-{{ ts }})"
     else
         mv "$src" "$dst"
     fi
@@ -738,25 +836,25 @@ archive service:
     log_step "④ Updating compose.yaml…"
     "{{ scripts_dir }}/sync-compose.sh" --remove-orphans 2>&1 | sed 's/^/   /'
     echo ""
-    log_ok "{{ service }} archived"
+    log_ok "{{ service }} retired"
     echo "  Config backup: {{ backup_dir }}/retired/{{ service }}-{{ ts }}.tar.gz"
-    echo "  Archived to:   {{ archive_dir }}/{{ service }}"
+    echo "  Retired to:    {{ archive_dir }}/{{ service }}"
     echo ""
-    echo "  To restore: just unarchive {{ service }}"
+    echo "  To revive: just revive {{ service }}"
 
-# Restore an archived service
-[group('archive')]
-unarchive service:
+# Revive a retired service
+[group('retire')]
+revive service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
     src="{{ archive_dir }}/{{ service }}"
     dst="{{ services_dir }}/{{ service }}"
     if [[ ! -d "$src" ]]; then
-        log_err "No archive found for '{{ service }}'"
+        log_err "No retired version found for '{{ service }}'"
         matches=$(ls -d {{ archive_dir }}/{{ service }}-* 2>/dev/null || true)
         if [[ -n "$matches" ]]; then
-            echo "  Found timestamped archives:"
+            echo "  Found timestamped retired versions:"
             echo "$matches" | sed 's/^/    /'
             echo "  Move the desired version to {{ archive_dir }}/{{ service }} and try again"
         fi
@@ -765,27 +863,27 @@ unarchive service:
     if [[ -d "$dst" ]]; then
         log_err "Service '{{ service }}' already exists in services/"; exit 1
     fi
-    log_step "Restoring {{ service }} from archive…"
+    log_step "Reviving {{ service }} from retired services…"
     mv "$src" "$dst"
     "{{ scripts_dir }}/sync-compose.sh" --sync 2>&1 | sed 's/^/  /'
-    log_ok "Restored {{ service }} from archive"
-    echo "  Run: just start {{ service }}"
+    log_ok "Revived {{ service }} from retired services"
+    echo "  Run: just run {{ service }}"
 
-# List archived services
+# List retired services
 [private]
 _list-archives:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -d "{{ archive_dir }}" ]] || [[ -z "$(ls -A {{ archive_dir }} 2>/dev/null)" ]]; then
-        echo "No archived services"
+        echo "No retired services"
         exit 0
     fi
-    echo "Archived services:"
+    echo "Retired services:"
     for dir in {{ archive_dir }}/*/; do
         [[ -d "$dir" ]] || continue
         svc=$(basename "$dir")
         mod=$(stat -c %y "$dir" 2>/dev/null | cut -d' ' -f1 || echo "unknown")
-        printf "  %-25s (archived: %s)\n" "$svc" "$mod"
+        printf "  %-25s (retired: %s)\n" "$svc" "$mod"
     done
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
@@ -801,18 +899,18 @@ backup *args:
     shift 2>/dev/null || true
     case "$scope" in
         config|configs)
-            just _backup-configs
+            just _backup_configs
             ;;
         env|secrets)
-            just _backup-secrets
+            just _backup_secrets
             ;;
         data)
-            just _backup-data "$@"
+            just _backup_data "$@"
             ;;
         all)
-            just _backup-configs
-            just _backup-secrets
-            just _backup-data
+            just _backup_configs
+            just _backup_secrets
+            just _backup_data
             echo ""
             source "{{ helpers }}"
             log_ok "Full backup complete → {{ backup_dir }}/"
@@ -825,7 +923,7 @@ backup *args:
 
 # Backup all service compose configs
 [private]
-_backup-configs:
+_backup_configs:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -844,7 +942,7 @@ _backup-configs:
 
 # Backup .env and secrets (encrypted with optional GPG passphrase)
 [private]
-_backup-secrets:
+_backup_secrets:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -883,7 +981,7 @@ _backup-secrets:
 
 # Backup persistent data volumes for a service (or all)
 [private]
-_backup-data *service:
+_backup_data *service:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -992,6 +1090,11 @@ sync *args:
     elif [[ " $args " == *" --remove-orphans "* || "$args" == "--remove-orphans" ]]; then
         log_step "Syncing compose.yaml…"
         "{{ scripts_dir }}/sync-compose.sh" --sync
+        read -rp "Remove orphan service includes now? [y/N] " confirm
+        if [[ ! "${confirm:-}" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+            log_warn "Orphan removal skipped"
+            exit 0
+        fi
         log_step "Removing orphans…"
         "{{ scripts_dir }}/sync-compose.sh" --remove-orphans
     elif [[ -n "$args" && "$args" != -* ]]; then
@@ -1003,8 +1106,8 @@ sync *args:
     fi
 
 # Generate config files from .template files (excludes .env.template)
-[group('sync')]
-templates:
+[private]
+_render_templates:
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -1106,10 +1209,6 @@ templates:
         log_ok "All templates ($rendered) generated successfully"
     fi
 
-# Alias for templates
-[group('sync')]
-template: templates
-
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  MAINTENANCE                                                               ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
@@ -1120,6 +1219,11 @@ clean:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
+    read -rp "Prune unused Docker resources now? [y/N] " confirm
+    if [[ ! "${confirm:-}" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+        log_warn "Cleanup cancelled"
+        exit 0
+    fi
     prune_tmp=$(mktemp)
     docker system prune -f > "$prune_tmp" 2>&1 &
     spin $! "Pruning unused Docker resources…"
@@ -1138,9 +1242,15 @@ setup:
     source "{{ helpers }}"
     log_step "Setting up development environment…"
     if command -v pre-commit &>/dev/null; then
-        pre-commit install
-        pre-commit install --hook-type commit-msg
-        log_ok "Pre-commit hooks installed"
+        hooks_path="$(git config --get core.hooksPath 2>/dev/null || true)"
+        if [[ -n "$hooks_path" ]]; then
+            log_warn "Git core.hooksPath is set to '$hooks_path'; skipping pre-commit hook install"
+            log_warn "Unset it with: git config --unset-all core.hooksPath"
+        else
+            pre-commit install
+            pre-commit install --hook-type commit-msg
+            log_ok "Pre-commit hooks installed"
+        fi
     else
         log_warn "pre-commit not found (install with: pip install pre-commit)"
     fi
@@ -1151,11 +1261,47 @@ setup:
     else
         log_ok "Docker network 'nexus' exists"
     fi
+
+    completion_shell="$(basename "${SHELL:-zsh}")"
+    [[ -z "$completion_shell" ]] && completion_shell="zsh"
+    if [[ -f /etc/version ]] && grep -qi 'truenas' /etc/version; then
+        completion_shell="zsh"
+    fi
+
+    if command -v just &>/dev/null; then
+        SHELL="/bin/${completion_shell}" just install completion >/dev/null
+        if [[ "$completion_shell" == "zsh" ]]; then
+            mkdir -p "$HOME/.zsh/completions"
+            touch "$HOME/.zshrc"
+            grep -Fqx 'fpath=("$HOME/.zsh/completions" $fpath)' "$HOME/.zshrc" || echo 'fpath=("$HOME/.zsh/completions" $fpath)' >> "$HOME/.zshrc"
+            grep -Fqx 'autoload -Uz compinit && compinit' "$HOME/.zshrc" || echo 'autoload -Uz compinit && compinit' >> "$HOME/.zshrc"
+            log_ok "zsh completion configured (~/.zshrc)"
+        else
+            log_ok "bash completion installed"
+        fi
+    else
+        log_warn "just not found; skipped completion setup"
+    fi
+
     log_ok "Setup complete"
 
 # Update README with service listings
 [group('maintenance')]
-fmt:
+refresh target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ target }}" in
+        readme)
+            just _refresh_readme
+            ;;
+        *)
+            echo "Usage: just refresh readme" >&2
+            exit 1
+            ;;
+    esac
+
+[private]
+_refresh_readme:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -1174,20 +1320,62 @@ fmt:
 check *what:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "${1:-prereqs}" in
+    case "${1:-runtime}" in
+        runtime)  just _check_runtime ;;
         sync)     just _check-sync ;;
-        prereqs)  just _check-prereqs ;;
+        prereqs)  just _check_prereqs ;;
         *)
             # Treat as a service name
             if [[ -d "{{ services_dir }}/$1" ]]; then
                 just _check-service "$1"
             else
                 echo "Unknown argument '$1'. Not a service or subcommand." >&2
-                echo "Usage: just check [<service>|prereqs|sync]" >&2
+                echo "Usage: just check [runtime|<service>|prereqs|sync]" >&2
                 exit 1
             fi
             ;;
     esac
+
+# Lightweight runtime container health check (default for `just check`)
+[private]
+_check_runtime:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source "{{ helpers }}"
+
+    log_step "Checking container runtime state…"
+    rows=$(docker ps -a --format '{{ _l }}.Names{{ _r }}|{{ _l }}.Status{{ _r }}' 2>/dev/null || true)
+
+    unhealthy=0
+    restarting=0
+    exited=0
+    dead=0
+
+    while IFS='|' read -r name status; do
+        [[ -z "${name:-}" ]] && continue
+        if [[ "$status" == *"(unhealthy)"* ]]; then
+            printf '  - %s: %s\n' "$name" "$status"
+            ((unhealthy++)) || true
+        elif [[ "$status" == Restarting* ]]; then
+            printf '  - %s: %s\n' "$name" "$status"
+            ((restarting++)) || true
+        elif [[ "$status" == Exited* ]]; then
+            printf '  - %s: %s\n' "$name" "$status"
+            ((exited++)) || true
+        elif [[ "$status" == Dead* ]]; then
+            printf '  - %s: %s\n' "$name" "$status"
+            ((dead++)) || true
+        fi
+    done <<< "$rows"
+
+    if (( unhealthy + restarting + exited + dead == 0 )); then
+        log_ok "No unhealthy, restarting, exited, or dead containers"
+        exit 0
+    fi
+
+    echo ""
+    log_err "Issues found: unhealthy=$unhealthy restarting=$restarting exited=$exited dead=$dead"
+    exit 1
 
 # Quick health summary for a single service
 [private]
@@ -1330,7 +1518,7 @@ _check-service service:
 
 # Check prerequisites (docker, compose, direnv, etc.)
 [private]
-_check-prereqs:
+_check_prereqs:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -1367,7 +1555,7 @@ _check-prereqs:
 
 # Run docker compose command directly for a service
 [group('maintenance')]
-compose service *args:
+docker service *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
@@ -1376,5 +1564,220 @@ compose service *args:
 
 # Edit a service's compose file in $EDITOR
 [group('maintenance')]
-edit service:
+open service:
     ${EDITOR:-vi} "{{ services_dir }}/{{ service }}/compose.yaml"
+
+[group('maintenance')]
+install target *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "{{ target }}" == "completion" ]]; then
+        just _install-completion {{ args }}
+    else
+        echo "Usage: just install completion [bash|zsh]" >&2
+        exit 1
+    fi
+
+# Generate or install shell completion for this justfile
+[private]
+_install-completion *mode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source "{{ helpers }}"
+
+    mode="${1:-install}"
+    case "$mode" in
+        bash)
+            printf '%s\n' \
+                '_just_nexus_complete() {' \
+                '    local cur prev cmd' \
+                '    COMPREPLY=()' \
+                '    cur="${COMP_WORDS[COMP_CWORD]}"' \
+                '    prev="${COMP_WORDS[COMP_CWORD-1]:-}"' \
+                '    cmd="${COMP_WORDS[1]:-}"' \
+                '' \
+                '    local root justfile_arg' \
+                '    root="$(git rev-parse --show-toplevel 2>/dev/null || true)"' \
+                '    if [[ -n "$root" && -f "$root/justfile" ]]; then' \
+                '        justfile_arg=(--justfile "$root/justfile")' \
+                '    else' \
+                '        justfile_arg=()' \
+                '    fi' \
+                '' \
+                '    local recipes' \
+                "    recipes=\$(just \"\${justfile_arg[@]}\" --list --unsorted --list-heading '' 2>/dev/null | sed -En 's/^[[:space:]]*([a-z][a-z0-9_-]*).*/\\1/p' | tr '\\n' ' ')" \
+                '    local services' \
+                '    services="$(just "${justfile_arg[@]}" _service-names 2>/dev/null)"' \
+                '' \
+                '    local service_recipes="run stop restart rebuild build show tail verify inspect retire revive docker open check update enter watch"' \
+                '' \
+                '    if [[ $COMP_CWORD -eq 1 ]]; then' \
+                '        COMPREPLY=( $(compgen -W "$recipes" -- "$cur") )' \
+                '        return 0' \
+                '    fi' \
+                '' \
+                '    case "$cmd" in' \
+                '        render)' \
+                '            if [[ $COMP_CWORD -eq 2 ]]; then' \
+                '                COMPREPLY=( $(compgen -W "templates $services" -- "$cur") )' \
+                '                return 0' \
+                '            fi' \
+                '            ;;' \
+                '        update)' \
+                '            COMPREPLY=( $(compgen -W "--force $services" -- "$cur") )' \
+                '            return 0' \
+                '            ;;' \
+                '        check)' \
+                '            if [[ $COMP_CWORD -eq 2 ]]; then' \
+                '                COMPREPLY=( $(compgen -W "prereqs sync $services" -- "$cur") )' \
+                '                return 0' \
+                '            fi' \
+                '            ;;' \
+                '        *)' \
+                '            if [[ " $service_recipes " == *" $cmd "* && $COMP_CWORD -eq 2 ]]; then' \
+                '                COMPREPLY=( $(compgen -W "$services" -- "$cur") )' \
+                '                return 0' \
+                '            fi' \
+                '            ;;' \
+                '    esac' \
+                '}' \
+                '' \
+                'complete -F _just_nexus_complete just'
+            ;;
+        zsh)
+            printf '%s\n' \
+                '#compdef just' \
+                '' \
+                '_just() {' \
+                '    local -a recipes services candidates' \
+                '    local root justfile' \
+                '    root="$(git rev-parse --show-toplevel 2>/dev/null || true)"' \
+                '    if [[ -n "$root" && -f "$root/justfile" ]]; then' \
+                '        justfile="$root/justfile"' \
+                '    else' \
+                '        justfile=""' \
+                '    fi' \
+                '    if [[ -n "$justfile" ]]; then' \
+                "        recipes=(\"\${(@f)\$(just --justfile \"\$justfile\" --list --unsorted --list-heading '' 2>/dev/null | sed -En 's/^[[:space:]]*([a-z][a-z0-9_-]*).*/\\1/p')}\")" \
+                '        services=("${(@f)$(just --justfile "$justfile" _service-names 2>/dev/null)}")' \
+                '    else' \
+                "        recipes=(\"\${(@f)\$(just --list --unsorted --list-heading '' 2>/dev/null | sed -En 's/^[[:space:]]*([a-z][a-z0-9_-]*).*/\\1/p')}\")" \
+                '        services=("${(@f)$(just _service-names 2>/dev/null)}")' \
+                '    fi' \
+                '    local recipe="${words[2]:-}"' \
+                '' \
+                '    if (( CURRENT == 2 )); then' \
+                '        compadd -- "${recipes[@]}"' \
+                '        return' \
+                '    fi' \
+                '' \
+                '    case "$recipe" in' \
+                '        update)' \
+                '            if (( CURRENT >= 3 )); then' \
+                '                candidates=(--force "${services[@]}")' \
+                '                if (( $+commands[fzf] )) && [[ -t 0 && -t 1 ]] && [[ "${words[CURRENT]:-}" != -* ]]; then' \
+                '                    local picked' \
+                "                    picked=\$(printf '%s\\n' \"\${services[@]}\" | fzf --height 40% --reverse --prompt='update> ' 2>/dev/null || true)" \
+                '                    [[ -n "$picked" ]] && compadd -- "$picked" && return' \
+                '                fi' \
+                '                compadd -- "${candidates[@]}"' \
+                '                return' \
+                '            fi' \
+                '            ;;' \
+                '        check)' \
+                '            if (( CURRENT == 3 )); then' \
+                '                compadd -- prereqs sync "${services[@]}"' \
+                '                return' \
+                '            fi' \
+                '            ;;' \
+                '        render)' \
+                '            if (( CURRENT == 3 )); then' \
+                '                compadd -- templates "${services[@]}"' \
+                '                return' \
+                '            fi' \
+                '            ;;' \
+                '        run|stop|restart|rebuild|build|show|tail|verify|inspect|retire|revive|docker|open|enter|watch)' \
+                '            if (( CURRENT == 3 )); then' \
+                '                compadd -- "${services[@]}"' \
+                '                return' \
+                '            fi' \
+                '            ;;' \
+                '    esac' \
+                '    return 0' \
+                '}' \
+                '' \
+                'compdef _just just'
+            ;;
+        install)
+            shell_name=$(basename "${SHELL:-}")
+            case "$shell_name" in
+                zsh)
+                    if [[ -d "$HOME/.jsh/lib/zsh-completions/src" ]]; then
+                        target="$HOME/.jsh/lib/zsh-completions/src/_just"
+                    elif [[ -d "$HOME/.jsh/src/completions" ]]; then
+                        target="$HOME/.jsh/src/completions/_just"
+                    else
+                        target="$HOME/.zsh/completions/_just"
+                    fi
+                    ;;
+                bash)
+                    target="$HOME/.local/share/bash-completion/completions/just"
+                    ;;
+                *)
+                    log_err "Unsupported shell: ${SHELL:-unknown}"
+                    echo "Use: just install completion bash > <path>  or  just install completion zsh > <path>" >&2
+                    exit 1
+                    ;;
+            esac
+
+            mkdir -p "$(dirname "$target")"
+            tmp=$(mktemp)
+            just _install-completion "$shell_name" > "$tmp"
+
+            if [[ -f "$target" ]] && cmp -s "$tmp" "$target"; then
+                rm -f "$tmp"
+                log_ok "Completion already up to date at $target"
+            else
+                install -m 0644 "$tmp" "$target"
+                rm -f "$tmp"
+                log_ok "Installed completion to $target"
+            fi
+
+            if [[ "$shell_name" == "zsh" && -f "$HOME/.jsh/src/completion.sh" ]]; then
+                rc="$HOME/.zshrc"
+                begin="# >>> nexus just completion override >>>"
+                end="# <<< nexus just completion override <<<"
+
+                touch "$rc"
+                tmp_rc=$(mktemp)
+                awk -v b="$begin" -v e="$end" '
+                    $0 == b {skip=1; next}
+                    $0 == e {skip=0; next}
+                    !skip {print}
+                ' "$rc" > "$tmp_rc"
+
+                {
+                    cat "$tmp_rc"
+                    printf '\n%s\nautoload -Uz _just\ncompdef _just just\n%s\n' "$begin" "$end"
+                } > "$rc"
+
+                rm -f "$tmp_rc"
+                log_ok "Installed just completion override in $rc"
+            fi
+
+            if [[ "$shell_name" == "zsh" ]]; then
+                echo "Add to ~/.zshrc (once):"
+                echo "  fpath=(\"$HOME/.zsh/completions\" \$fpath)"
+                echo "  autoload -Uz compinit && compinit"
+                echo "Then start a new shell."
+            else
+                echo "Source in current shell:"
+                echo "  source \"$target\""
+                echo "Or add to ~/.bashrc and reload your shell."
+            fi
+            ;;
+        *)
+            echo "Usage: just _install-completion [install|bash|zsh]" >&2
+            exit 1
+            ;;
+    esac

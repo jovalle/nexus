@@ -25,11 +25,11 @@ git clone https://github.com/jovalle/nexus.git && cd nexus
 # Copy and fill in your environment
 cp .env.example .env
 
-# Start everything
-just up
+# Run everything
+just run
 
-# Start a single service
-just up plex
+# Run a single service
+just run plex
 ```
 
 ## Structure
@@ -56,15 +56,17 @@ All management goes through `just`:
 
 ```bash
 just              # List all recipes
-just up [svc]     # Start service(s)
-just down [svc]   # Stop service(s)
+just run [svc]    # Run service(s)
+just stop [svc]   # Stop service(s)
 just restart svc  # Restart a service
-just logs svc     # Tail logs
-just status       # Show running containers
-just retire svc   # Archive a service
+just tail svc     # Stream logs
+just show [svc]   # Show container status
+just retire svc   # Retire a service
 ```
 
 Run `just --list` for the full recipe list.
+
+Install shell completion with just install completion.
 
 ## Configuration
 
