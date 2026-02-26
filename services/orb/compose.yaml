@@ -20,6 +20,7 @@ services:
       homepage.group: Utilities
       homepage.icon: mdi-speedometer
       homepage.name: Orb
+      traefik.enable: false
     network_mode: host
     restart: unless-stopped
     volumes:

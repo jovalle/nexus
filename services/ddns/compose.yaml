@@ -25,6 +25,7 @@ services:
       homepage.group: Gateway
       homepage.icon: cloudflare
       homepage.name: DDNS
+      traefik.enable: false
     network_mode: host
     read_only: true
     restart: unless-stopped
