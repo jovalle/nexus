@@ -188,7 +188,8 @@ services/uptime-kuma/data/
 services/syncthing/config/
 services/duplicati/config/
 services/ntfy/cache/
-services/ntfy/config/server.yml
+services/ntfy/config/
+services/garage/config/
 
 # misc sensitive file types
 *.bak

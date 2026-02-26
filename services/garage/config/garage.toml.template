@@ -14,16 +14,16 @@ compression_level = 2
 
 # RPC configuration for inter-node communication
 rpc_bind_addr = "[::]:3901"
-rpc_secret = "${GARAGE_RPC_SECRET:?GARAGE_RPC_SECRET is not defined}"
+rpc_secret = "${GARAGE_RPC_SECRET}"
 
 [s3_api]
 s3_region = "garage"
 api_bind_addr = "[::]:3900"
-root_domain = "${GARAGE_S3_ROOT_DOMAIN:?GARAGE_S3_ROOT_DOMAIN is not defined}"
+root_domain = "${GARAGE_S3_ROOT_DOMAIN}"
 
 [s3_web]
 bind_addr = "[::]:3902"
-root_domain = "${GARAGE_WEB_ROOT_DOMAIN:?GARAGE_WEB_ROOT_DOMAIN is not defined}"
+root_domain = "${GARAGE_WEB_ROOT_DOMAIN}"
 index = "index.html"
 
 [admin]
