@@ -40,5 +40,6 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
       - ./data:/data

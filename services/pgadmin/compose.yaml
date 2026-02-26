@@ -40,8 +40,6 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m,uid=5050,gid=5050
       - /var/lib/pgadmin/sessions:rw,noexec,nosuid,size=64m,uid=5050,gid=5050
-    # pgadmin4 runs as uid 5050 internally
-    user: "5050:5050"
     volumes:
       - ./data:/var/lib/pgadmin
       - ./data/servers.json:/pgadmin4/servers.json:ro

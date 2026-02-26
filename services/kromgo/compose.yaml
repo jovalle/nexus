@@ -1,25 +1,14 @@
+networks:
+  nexus:
+    external: true
 services:
   kromgo:
-    image: ghcr.io/kashalls/kromgo
+    cap_drop:
+      - ALL
     container_name: kromgo
-    hostname: kromgo
-    user: "65532:65532"
     depends_on:
       prometheus:
         condition: service_healthy
-    environment:
-      PROMETHEUS_URL: ${PROMETHEUS_URL:?PROMETHEUS_URL not set}
-    healthcheck:
-      test: ["NONE"]
-    labels:
-      homepage.group: Observability
-      homepage.name: Kromgo
-      homepage.icon: prometheus
-      homepage.description: Prometheus Badge Generator
-      homepage.href: https://kromgo.${DOMAIN:?DOMAIN not set}
-      traefik.http.routers.kromgo.rule: Host(`kromgo.${DOMAIN:?DOMAIN not set}`) || Host(`stat.${DOMAIN:?DOMAIN not set}`)
-    ports:
-      - 8082:8080
     deploy:
       resources:
         limits:
@@ -28,16 +17,27 @@ services:
         reservations:
           cpus: '0.05'
           memory: 16M
+    environment:
+      PROMETHEUS_URL: ${PROMETHEUS_URL:?PROMETHEUS_URL not set}
+    healthcheck:
+      test: [ "NONE" ]
+    hostname: kromgo
+    image: ghcr.io/kashalls/kromgo
+    labels:
+      homepage.description: Prometheus Badge Generator
+      homepage.group: Observability
+      homepage.href: https://kromgo.${DOMAIN:?DOMAIN not set}
+      homepage.icon: prometheus
+      homepage.name: Kromgo
+      traefik.http.routers.kromgo.rule: Host(`kromgo.${DOMAIN:?DOMAIN not set}`) || Host(`stat.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
+    ports:
+      - 8082:8080
+    read_only: true
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    read_only: true
+    user: "${PUID:?PUID not set}:${PGID:?PGID not set}"
     volumes:
       - ./data/kromgo.yaml:/kromgo/config.yaml:ro
-    networks:
-      - nexus
-networks:
-  nexus:
-    external: true
