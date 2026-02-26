@@ -13,11 +13,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
-          memory: 128M
+          cpus: '0.5'
+          memory: 256M
         reservations:
           cpus: '0.05'
-          memory: 32M
+          memory: 128M
     hostname: adguard-sync
     image: ghcr.io/bakito/adguardhome-sync
     labels:
