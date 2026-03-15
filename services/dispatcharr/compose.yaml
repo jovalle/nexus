@@ -1,0 +1,48 @@
+networks:
+  nexus:
+    external: true
+services:
+  dispatcharr:
+    cap_add:
+      - SYS_NICE
+    container_name: dispatcharr
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DISPATCHARR_ENV: aio
+      DISPATCHARR_LOG_LEVEL: info
+      REDIS_HOST: localhost
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 120s
+      test: [ "CMD-SHELL", "curl -f http://localhost:9191/ || exit 1" ]
+      timeout: 10s
+    hostname: dispatcharr
+    image: ghcr.io/dispatcharr/dispatcharr
+    labels:
+      homepage.description: IPTV & Stream Management
+      homepage.group: Media Streaming
+      homepage.href: https://dispatcharr.${DOMAIN:?DOMAIN not set}
+      homepage.icon: dispatcharr
+      homepage.name: Dispatcharr
+      traefik.http.routers.dispatcharr.rule: Host(`dispatcharr.${DOMAIN:?DOMAIN not set}`)
+    networks:
+      - nexus
+    ports:
+      - 9191:9191
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    volumes:
+      - ./data:/data

@@ -57,6 +57,9 @@ include:
     env_file:
       - .env
       - services/cloudflared/.env
+  - path: services/dispatcharr/compose.yaml
+    env_file:
+      - .env
   - path: services/docker-socket-proxy/compose.yaml
     env_file:
       - .env
