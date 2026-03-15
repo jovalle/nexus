@@ -121,6 +121,7 @@ services/bazarr/data/
 services/beszel-agent/data/
 services/beszel/data/
 services/boxarr/data/
+services/dispatcharr/data/
 services/dockhand/data/
 services/excalidraw/data/
 services/flaresolverr/data/
@@ -156,6 +157,8 @@ services/sonarr/data/
 services/stringer/data/
 services/tailscale/data/
 services/tautulli/data/
+services/tdarr/data/
+services/tdarr/server/
 services/tracearr/data/
 services/trala/data/
 services/uptime-kuma/data/

@@ -4,6 +4,7 @@ networks:
 services:
   uptime-kuma:
     cap_add:
+      - CHOWN
       - SETGID
       - SETUID
     cap_drop:

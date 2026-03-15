@@ -12,6 +12,7 @@ services:
     depends_on:
       gluetun:
         condition: service_healthy
+        restart: true
     deploy:
       resources:
         limits:
