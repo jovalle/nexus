@@ -41,6 +41,7 @@ services:
       homepage.widget.type: adguard
       homepage.widget.url: http://adguard
       homepage.widget.username: ${ADGUARD_ADMIN_USERNAME:?ADGUARD_ADMIN_USERNAME not set}
+      traefik.http.routers.adguard.rule: Host(`adguard.${DOMAIN:?DOMAIN not set}`)|| Host(`dns.nexus.${DOMAIN}`) || Host(`ns2.${DOMAIN}`)
       traefik.http.services.adguard.loadbalancer.server.port: 80
     networks:
       nexus:

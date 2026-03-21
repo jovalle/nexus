@@ -554,15 +554,16 @@ watch *service:
 
 # Inspect a service's compose config (resolved)
 [group('debug')]
-render target *args:
+render *target:
     #!/usr/bin/env bash
     set -euo pipefail
     source "{{ helpers }}"
-    if [[ "{{ target }}" == "templates" ]]; then
+    render_target="{{ target }}"
+    if [[ -z "$render_target" || "$render_target" == "templates" ]]; then
         just _render_templates
         exit 0
     fi
-    resolve_service "{{ target }}" "{{ services_dir }}"
+    resolve_service "$render_target" "{{ services_dir }}"
     docker compose config $SVC_NAMES
 
 # Validate compose file(s) for a service (or all)
@@ -1105,7 +1106,21 @@ sync *args:
         "{{ scripts_dir }}/sync-compose.sh" --sync
     fi
 
-# Generate config files from .template files (excludes .env.template)
+# Generate config files from .template files under services/
+[group('sync')]
+templates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just _render_templates
+
+# Alias for templates
+[group('sync')]
+template:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just templates
+
+# Generate config files from .template files under services/
 [private]
 _render_templates:
     #!/usr/bin/env bash
@@ -1125,41 +1140,89 @@ _render_templates:
     rendered=0
     failed=0
     total=0
+    declare -a template_files=()
+    declare -a template_services=()
+    declare -a template_include_env_csv=()
+    is_tty=false
+    if [[ -t 1 ]]; then
+        is_tty=true
+    fi
 
-    # Collect templates first
-    mapfile -t template_files < <(find "{{ data_path }}" \
-        -path "*/syncthing/data/*" -prune -o \
-        -path "*/.claude/*" -prune -o \
-        -type f -name "*.template" -print 2>/dev/null)
+    # Discover templates via root compose include entries only.
+    if [[ -f "{{ root_dir }}/compose.yaml" ]]; then
+        while IFS='|' read -r include_path include_env_csv; do
+            [[ "$include_path" =~ ^services/([^/]+)/compose\.yaml$ ]] || continue
+            include_service="${BASH_REMATCH[1]}"
+            [[ "$include_service" == "syncthing" ]] && continue
+
+            include_dir="{{ root_dir }}/${include_path%/compose.yaml}"
+            [[ -d "$include_dir" ]] || continue
+
+            while IFS= read -r template; do
+                [[ -z "$template" ]] && continue
+                template_files+=("$template")
+                template_services+=("$include_service")
+                template_include_env_csv+=("$include_env_csv")
+            done < <(find "$include_dir" -type f -name "*.template" -print 2>/dev/null | sort)
+        done < <(yq -r '.include[]? | .path + "|" + ((.env_file // []) | join(","))' "{{ root_dir }}/compose.yaml" 2>/dev/null || true)
+    fi
+
     total=${#template_files[@]}
     current=0
 
-    for template in "${template_files[@]}"; do
+    for idx in "${!template_files[@]}"; do
+        template="${template_files[$idx]}"
+        service_name="${template_services[$idx]}"
+        include_env_csv="${template_include_env_csv[$idx]}"
         [[ -z "$template" ]] && continue
-        [[ "$template" == *".env.template" ]] && continue
         ((current++)) || true
+        template_display="${template#{{ root_dir }}/}"
+
+        # Show per-template progress and replace this line with final status.
+        if $is_tty; then
+            printf '  ⏳ [%s/%s] %s' "$current" "$total" "$template_display"
+        else
+            printf '  ⏳ [%s/%s] %s\n' "$current" "$total" "$template_display"
+        fi
 
         # Skip templates inside git repositories (submodules/cloned projects)
         template_dir=$(dirname "$template")
-        while [[ "$template_dir" != "{{ data_path }}" && "$template_dir" != "/" ]]; do
+        while [[ "$template_dir" != "{{ services_dir }}" && "$template_dir" != "/" ]]; do
             if [[ -e "$template_dir/.git" ]]; then
                 continue 2  # Skip this template
             fi
             template_dir=$(dirname "$template_dir")
         done
 
-        # Extract service name from path (e.g., /mnt/data/docker/adguard/sync/... -> adguard)
-        rel_path="${template#{{ data_path }}/}"
-        service_name="${rel_path%%/*}"
-
-        # Source service-specific .env if it exists (in a subshell to isolate vars)
-        (
+        # Source root, include env_file entries, and nearby .env (in a subshell to isolate vars)
+        if render_error=$( (
             # Re-source root .env first (subshell starts fresh)
             set -a
             source "{{ root_dir }}/.env"
-            # Then overlay service-specific .env
+
+            # Overlay env_file entries from root compose include for this service.
+            if [[ -n "$include_env_csv" ]]; then
+                IFS=',' read -r -a include_env_files <<< "$include_env_csv"
+                for include_env in "${include_env_files[@]}"; do
+                    [[ -z "$include_env" || "$include_env" == ".env" ]] && continue
+                    if [[ "$include_env" == /* ]]; then
+                        include_env_abs="$include_env"
+                    else
+                        include_env_abs="{{ root_dir }}/$include_env"
+                    fi
+                    if [[ -f "$include_env_abs" ]]; then
+                        source "$include_env_abs"
+                    fi
+                done
+            fi
+            # Overlay service-local .env for templates rooted in this include service.
             if [[ -f "{{ services_dir }}/${service_name}/.env" ]]; then
                 source "{{ services_dir }}/${service_name}/.env"
+            fi
+            # Finally overlay .env closest to the template (if present)
+            template_parent=$(dirname "$template")
+            if [[ -f "$template_parent/.env" ]]; then
+                source "$template_parent/.env"
             fi
             set +a
 
@@ -1176,25 +1239,35 @@ _render_templates:
             done
 
             if [[ -n "$missing_vars" ]]; then
-                printf '  \033[31m✗\033[0m %s\n' "$template"
-                echo "    Missing:$missing_vars"
+                echo "Missing:$missing_vars"
                 exit 1  # Signal failure to parent
             fi
 
             # Generate output
             if envsubst < "$template" > "$output" 2>/dev/null; then
                 chmod 644 "$output"
-                printf '  \033[32m✓\033[0m %s\n' "$template"
                 exit 0  # Success
             else
-                printf '  \033[31m✗\033[0m %s (envsubst failed)\n' "$template"
+                echo "envsubst failed"
                 exit 1  # Failure
             fi
-        )
-
-        if [[ $? -eq 0 ]]; then
+        ) 2>&1); then
+            if $is_tty; then
+                printf '\r\033[2K'
+            fi
+            printf '  \033[32m✓\033[0m %s\n' "$template_display"
             ((rendered++)) || true
         else
+            if $is_tty; then
+                printf '\r\033[2K'
+            fi
+            printf '  \033[31m✗\033[0m %s\n' "$template_display"
+            if [[ -n "${render_error:-}" ]]; then
+                while IFS= read -r line; do
+                    [[ -z "$line" ]] && continue
+                    printf '    %s\n' "$line"
+                done <<< "$render_error"
+            fi
             ((failed++)) || true
         fi
     done

@@ -1,0 +1,47 @@
+# =============================================================================
+# Cross-Proxy Fallback: Nexus → Mothership
+# =============================================================================
+http:
+  middlewares:
+    proxy-loop:
+      headers:
+        customRequestHeaders:
+          X-Proxy-Loop: "nexus"
+
+  routers:
+    mothership-fallback:
+      entryPoints:
+        - websecure
+      rule: 'HostRegexp(`^[a-z0-9-]+\.{{ env "DOMAIN" }}$`) && !HeaderRegexp(`X-Proxy-Loop`, `.+`)'
+      priority: 1
+      middlewares:
+        - proxy-loop
+      service: mothership-backend
+      tls:
+        certResolver: letsencrypt  # or whatever your cert resolver is named
+
+    mothership-fallback-sub:
+      entryPoints:
+        - websecure
+      rule: 'HostRegexp(`^[a-z0-9-]+\.[a-z0-9-]+\.{{ env "DOMAIN" }}$`) && !HeaderRegexp(`X-Proxy-Loop`, `.+`)'
+      priority: 1
+      middlewares:
+        - proxy-loop
+      service: mothership-backend
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    mothership-backend:
+      loadBalancer:
+        servers:
+          - url: 'https://100.100.1.1:443'
+        serversTransport: tailscale-transport
+
+  serversTransports:
+    tailscale-transport:
+      insecureSkipVerify: true
+      forwardingTimeouts:
+        dialTimeout: 10s
+        responseHeaderTimeout: 30s
+        idleConnTimeout: 90s

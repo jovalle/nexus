@@ -15,22 +15,16 @@ include:
   - path: services/adguard/compose.yaml
     env_file:
       - .env
-      - services/adguard/.env
   - path: services/adguard-sync/compose.yaml
     env_file:
       - .env
+      - services/adguard/.env
   - path: services/agregarr/compose.yaml
     env_file:
       - .env
   - path: services/audiodeck/compose.yaml
     env_file:
       - .env
-  - path: services/authelia/compose.yaml
-    env_file:
-      - .env
-      - services/authelia/.env
-      - services/domain-locker/.env
-      - services/immich/.env
   - path: services/bazarr/compose.yaml
     env_file:
       - .env

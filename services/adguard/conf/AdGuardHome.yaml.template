@@ -98,12 +98,14 @@ querylog:
   interval: 2160h
   size_memory: 1000
   enabled: true
+  ignored_enabled: false
   file_enabled: true
 statistics:
   dir_path: ""
   ignored: []
   interval: 24h
   enabled: true
+  ignored_enabled: false
 filters:
   - enabled: false
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
@@ -246,15 +248,19 @@ filtering:
   parental_block_host: family-block.dns.adguard.com
   safebrowsing_block_host: standard-block.dns.adguard.com
   rewrites:
-    - domain: '*.mothership.${DOMAIN}'
-      answer: 100.100.1.1
-      enabled: true
-    - domain: '*.nexus.${DOMAIN}'
+    - domain: 'go'
       answer: 192.168.1.2
       enabled: true
     - domain: 'go.${DOMAIN}'
       answer: 192.168.1.2
       enabled: true
+    - domain: 'go.home.arpa'
+      answer: 'go.${DOMAIN}'
+      enabled: true
+    - domain: '*.${DOMAIN}'
+      answer: 192.168.1.2
+      enabled: true
+  safe_fs_patterns: []
   safebrowsing_cache_size: 1048576
   safesearch_cache_size: 1048576
   parental_cache_size: 1048576
@@ -287,4 +293,4 @@ os:
   group: ""
   user: ""
   rlimit_nofile: 0
-schema_version: 32
+schema_version: 33

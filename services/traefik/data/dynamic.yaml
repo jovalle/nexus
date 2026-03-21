@@ -23,7 +23,7 @@ http:
     # -------------------------------------------------------------------------
     auth:
       forwardAuth:
-        address: http://authelia:9091/api/authz/forward-auth
+        address: http://100.100.1.1:9091/api/authz/forward-auth
         trustForwardHeader: true
         authResponseHeaders:
           - Remote-User
@@ -39,7 +39,7 @@ http:
     # -------------------------------------------------------------------------
     basic-auth:
       forwardAuth:
-        address: 'http://authelia:9091/api/authz/forward-auth?authelia_url=https://auth.{{ env "DOMAIN" }}'
+        address: 'http://100.100.1.1:9091/api/authz/forward-auth?authelia_url=https://auth.{{ env "DOMAIN" }}'
         trustForwardHeader: true
         authResponseHeaders:
           - Remote-User
@@ -47,10 +47,21 @@ http:
           - Remote-Email
           - Remote-Name
 
+    # -------------------------------------------------------------------------
+    # proxy-loop - Prevent fallback proxy loops between Nexus and Mothership
+    # -------------------------------------------------------------------------
+    proxy-loop:
+      headers:
+        customRequestHeaders:
+          X-Proxy-Loop: "nexus"
+
   # ===========================================
   # ROUTERS
   # ===========================================
   routers:
+    auth:
+      rule: 'Host(`auth.{{ env "DOMAIN" }}`)'
+      service: "authelia"
     console:
       rule: 'Host(`console.nexus.{{ env "DOMAIN" }}`)'
       service: "console"
@@ -63,6 +74,11 @@ http:
     golink:
       rule: 'Host(`go.{{ env "DOMAIN" }}`)'
       service: "golink"
+    golink-short-host:
+      rule: 'Host(`go`)'
+      service: "golink"
+      tls:
+        options: short-host@file
     proxmox:
       rule: 'Host(`proxmox.{{ env "DOMAIN" }}`) || Host(`pve.{{ env "DOMAIN" }}`)'
       service: "proxmox"
@@ -70,10 +86,39 @@ http:
       rule: 'Host(`truenas.{{ env "DOMAIN" }}`) || Host(`nexus.{{ env "DOMAIN" }}`)'
       service: "truenas"
 
+    # -------------------------------------------------------------------------
+    # Cross-proxy fallback routers (Nexus -> Mothership)
+    # -------------------------------------------------------------------------
+    mothership-fallback:
+      entryPoints:
+        - websecure
+      rule: 'HostRegexp(`^[a-z0-9-]+\.{{ env "DOMAIN" }}$`) && !HeaderRegexp(`X-Proxy-Loop`, `.+`)'
+      priority: 1
+      middlewares:
+        - proxy-loop
+      service: mothership-backend
+      tls:
+        certResolver: letsencrypt
+
+    mothership-fallback-sub:
+      entryPoints:
+        - websecure
+      rule: 'HostRegexp(`^[a-z0-9-]+\.[a-z0-9-]+\.{{ env "DOMAIN" }}$`) && !HeaderRegexp(`X-Proxy-Loop`, `.+`)'
+      priority: 1
+      middlewares:
+        - proxy-loop
+      service: mothership-backend
+      tls:
+        certResolver: letsencrypt
+
   # ===========================================
   # SERVICES
   # ===========================================
   services:
+    authelia:
+      loadBalancer:
+        servers:
+          - url: "http://100.100.1.1:9091"
     console:
       loadBalancer:
         servers:
@@ -99,6 +144,21 @@ http:
         servers:
           - url: "https://192.168.1.2:8443"
 
+    mothership-backend:
+      loadBalancer:
+        servers:
+          - url: "https://100.100.1.1:443"
+        serversTransport: tailscale-transport
+
+  serversTransports:
+    tailscale-transport:
+      insecureSkipVerify: true
+      serverName: 'mothership.{{ env "DOMAIN" }}'
+      forwardingTimeouts:
+        dialTimeout: 10s
+        responseHeaderTimeout: 30s
+        idleConnTimeout: 90s
+
 # ===========================================
 # TLS CONFIGURATION
 # ===========================================
@@ -117,3 +177,6 @@ tls:
     modern:
       minVersion: VersionTLS13
       sniStrict: true
+    short-host:
+      minVersion: VersionTLS12
+      sniStrict: false

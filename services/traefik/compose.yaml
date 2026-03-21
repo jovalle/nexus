@@ -73,10 +73,12 @@ services:
       homepage.name: Traefik
       homepage.widget.type: traefik
       homepage.widget.url: http://traefik:8080
+      traefik.http.routers.traefik.rule: Host(`traefik.${DOMAIN:?DOMAIN not set}`) || Host(`traefik.nexus.${DOMAIN}`)
       traefik.http.services.traefik.loadbalancer.server.port: 8080
     networks:
       - nexus
     ports:
+      - 80:80
       - 443:443
       - 8080:8080
       - 8091:8091
