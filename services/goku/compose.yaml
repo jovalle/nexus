@@ -1,0 +1,44 @@
+networks:
+  nexus:
+    external: true
+services:
+  goku:
+    cap_drop:
+      - ALL
+    container_name: goku
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    environment:
+      GOKU_CONFIG: /etc/goku/config.yaml
+      GOKU_WEB_PORT: 9001
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1:9001/healthz || exit 1" ]
+      timeout: 10s
+    hostname: goku
+    image: ghcr.io/jovalle/goku:latest
+    labels:
+      homepage.description: Go links and redirect manager
+      homepage.group: Core
+      homepage.icon: mdi-link-variant
+      homepage.name: Goku
+      traefik.enable: false
+    networks:
+      - nexus
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - ./data:/etc/goku

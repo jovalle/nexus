@@ -1,0 +1,35 @@
+links:
+  g: https://github.com
+  jay: https://jayovalle.com
+  jpmc: https://jpmorganchase.com
+  r: https://www.reddit.com
+  yc: https://news.ycombinator.com
+rules:
+  - name: technis
+    type: template
+    pattern: "{query}"
+    redirect: "https://{query}.techn.is"
+  - name: reddit
+    type: prefix
+    pattern: r
+    redirect: https://www.reddit.com/r
+  - name: github-user
+    type: template
+    pattern: g/{owner}
+    redirect: https://github.com/{owner}
+  - name: github-repo
+    type: template
+    pattern: g/{owner}/{name}
+    redirect: https://github.com/{owner}/{name}
+  - name: wikipedia
+    type: template
+    pattern: wiki/{topic}
+    redirect: https://en.wikipedia.org/w/index.php?title=Special:Search&fulltext=1&search={topic}
+  - name: youtube
+    type: template
+    pattern: yt/{query}
+    redirect: https://www.youtube.com/results?search_query={query}
+  - name: twitter
+    type: template
+    pattern: t/{user}
+    redirect: https://x.com/{user}

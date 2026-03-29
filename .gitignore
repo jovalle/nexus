@@ -11,6 +11,7 @@
 *.env
 *.local
 .local/
+.api_key
 
 # persistent data & backups
 stacks/
@@ -127,7 +128,6 @@ services/excalidraw/data/
 services/flaresolverr/data/
 services/garage/config/garage.toml
 services/gluetun/data/
-services/golink/data/
 services/homarr/data/
 services/homepage/data/
 services/jellyfin/data/

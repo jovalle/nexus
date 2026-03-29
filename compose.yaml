@@ -15,6 +15,7 @@ include:
   - path: services/adguard/compose.yaml
     env_file:
       - .env
+      - services/adguard/.env
   - path: services/adguard-sync/compose.yaml
     env_file:
       - .env
@@ -96,7 +97,7 @@ include:
     env_file:
       - .env
       - services/gluetun/.env
-  - path: services/golink/compose.yaml
+  - path: services/goku/compose.yaml
     env_file:
       - .env
   - path: services/gotenberg/compose.yaml

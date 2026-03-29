@@ -3,8 +3,8 @@
 # This file is watched for changes and automatically reloaded by Traefik
 # Add your external services here that aren't managed by Docker
 #
-# DEFAULTS (configured in docker-compose.yaml entrypoints):
-# - All HTTP traffic redirects to HTTPS (web entrypoint)
+# DEFAULTS:
+# - HTTP redirects are handled in this file via routers/middleware on web entrypoint
 # - All HTTPS traffic gets "internal" middleware by default (websecure entrypoint)
 # - To expose a service to the internet, explicitly use "external@file" middleware
 
@@ -55,6 +55,23 @@ http:
         customRequestHeaders:
           X-Proxy-Loop: "nexus"
 
+    # -------------------------------------------------------------------------
+    # redirect-https - Redirect plain HTTP to HTTPS
+    # -------------------------------------------------------------------------
+    redirect-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # -------------------------------------------------------------------------
+    # short-host-to-go - Canonicalize short hostnames to go.<domain>/<host>
+    # -------------------------------------------------------------------------
+    short-host-to-go:
+      redirectRegex:
+        regex: '^https?://([a-z0-9-]+)(?::[0-9]+)?(/.*)?$'
+        replacement: 'https://go.{{ env "DOMAIN" }}/${1}${2}'
+        permanent: false
+
   # ===========================================
   # ROUTERS
   # ===========================================
@@ -71,14 +88,37 @@ http:
     gatus:
       rule: 'Host(`gatus.{{ env "DOMAIN" }}`) || Host(`status.{{ env "DOMAIN" }}`)'
       service: "gatus"
-    golink:
+    goku:
       rule: 'Host(`go.{{ env "DOMAIN" }}`)'
-      service: "golink"
-    golink-short-host:
+      service: "goku"
+    goku-short-host:
       rule: 'Host(`go`)'
-      service: "golink"
+      service: "goku"
       tls:
         options: short-host@file
+    goku-short-slug:
+      entryPoints:
+        - golinks
+      rule: 'HostRegexp(`^[a-z0-9-]+$`) && !Host(`go`)'
+      middlewares:
+        - short-host-to-go
+      service: noop@internal
+    goku-short-slug-web:
+      entryPoints:
+        - web
+      rule: 'HostRegexp(`^[a-z0-9-]+$`) && !Host(`go`)'
+      priority: 1000
+      middlewares:
+        - short-host-to-go
+      service: noop@internal
+    web-redirect:
+      entryPoints:
+        - web
+      rule: 'HostRegexp(`^.+$`)'
+      priority: 1
+      middlewares:
+        - redirect-https
+      service: noop@internal
     proxmox:
       rule: 'Host(`proxmox.{{ env "DOMAIN" }}`) || Host(`pve.{{ env "DOMAIN" }}`)'
       service: "proxmox"
@@ -131,10 +171,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://100.100.1.1:8181"
-    golink:
+    goku:
       loadBalancer:
         servers:
-          - url: "http://golink:80"
+          - url: "http://goku:9001"
     proxmox:
       loadBalancer:
         servers:
