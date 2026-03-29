@@ -6,6 +6,14 @@ services:
     cap_drop:
       - ALL
     container_name: music-assistant
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     environment:
       LOG_LEVEL: info
     healthcheck:
@@ -15,7 +23,7 @@ services:
       test: [ "CMD-SHELL", "wget -q -O /dev/null http://localhost:8095 || exit 1" ]
       timeout: 10s
     hostname: music-assistant
-    image: ghcr.io/music-assistant/server
+    image: ghcr.io/music-assistant/server:2.7.11
     labels:
       homepage.description: Music streaming hub for all your music sources
       homepage.group: Media Streaming

@@ -16,7 +16,6 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
-    # Requires docker.sock for container discovery
     environment:
       NEWT_ID: ${NEWT_ID:?NEWT_ID not set}
       NEWT_SECRET: ${NEWT_SECRET:?NEWT_SECRET not set}

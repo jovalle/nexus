@@ -1,25 +1,16 @@
+networks:
+  nexus:
+    external: true
 services:
   duplicati:
-    image: lscr.io/linuxserver/duplicati
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     container_name: duplicati
-    hostname: duplicati
-    environment:
-      PUID: ${PUID:?PUID not set}
-      PGID: ${PGID:?PGID not set}
-      TZ: ${TZ:?TZ not set}
-      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY:?DUPLICATI_ENCRYPTION_KEY not set}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8200 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      homepage.group: Utilities
-      homepage.name: Duplicati
-      homepage.icon: duplicati
-      homepage.description: Backup Solution
-      homepage.href: https://duplicati.${DOMAIN:?DOMAIN not set}
     deploy:
       resources:
         limits:
@@ -28,24 +19,34 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    environment:
+      DUPLICATI__WEBSERVICE_PASSWORD: ${DUPLICATI_WEB_PASSWORD:?DUPLICATI_WEB_PASSWORD not set}
+      PGID: ${PGID:?PGID not set}
+      PUID: ${PUID:?PUID not set}
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY:?DUPLICATI_ENCRYPTION_KEY not set}
+      TZ: ${TZ:?TZ not set}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8200 || exit 1" ]
+      timeout: 10s
+    hostname: duplicati
+    image: lscr.io/linuxserver/duplicati
+    labels:
+      homepage.description: Backup Solution
+      homepage.group: Utilities
+      homepage.href: https://duplicati.${DOMAIN:?DOMAIN not set}
+      homepage.icon: duplicati
+      homepage.name: Duplicati
+    networks:
+      - nexus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    cap_drop:
-      - ALL
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
     volumes:
       - ./config:/config
       - ./source:/source:ro
       - ${BACKUP_PATH:?BACKUP_PATH not set}:/backups
-    networks:
-      - nexus
-networks:
-  nexus:
-    external: true
