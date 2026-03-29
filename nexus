@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Nexus CLI
+# =============================================================================
+# Purpose:
+#   Manage the Nexus stack without just/make dependencies.
+#
+# Usage:
+#   ./nexus preflight
+#   ./nexus up [service ...]
+#   ./nexus down [service ...]
+#   ./nexus restart [service ...]
+#   ./nexus pull [service ...]
+#   ./nexus logs [service ...]
+#   ./nexus ps [service ...]
+#   ./nexus config [service ...]
+# =============================================================================
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPERS="${ROOT_DIR}/scripts/helpers.sh"
+CHECK_HOST="${ROOT_DIR}/scripts/check-host.sh"
+
+if [[ -f "$HELPERS" ]]; then
+    # shellcheck source=/dev/null
+    source "$HELPERS"
+else
+    log_step() { echo "-> $*"; }
+    log_ok() { echo "OK: $*"; }
+    log_warn() { echo "WARN: $*"; }
+    log_err() { echo "ERR: $*" >&2; }
+fi
+
+usage() {
+    cat <<'EOF'
+Nexus CLI
+
+Usage:
+  ./nexus preflight                Validate host requirements
+  ./nexus up [service ...]         Create prerequisites and start services
+  ./nexus down [service ...]       Stop and remove stack or specific services
+  ./nexus restart [service ...]    Restart stack or specific services
+  ./nexus pull [service ...]       Pull latest images then start services
+  ./nexus logs [service ...]       Follow logs
+  ./nexus ps [service ...]         Show status
+  ./nexus config [service ...]     Show resolved compose config
+  ./nexus network                  Ensure nexus network exists
+  ./nexus help                     Show this help
+EOF
+}
+
+ensure_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_err "docker is required but was not found"
+        exit 1
+    fi
+    if ! docker compose version >/dev/null 2>&1; then
+        log_err "docker compose v2 is required but was not found"
+        exit 1
+    fi
+}
+
+preflight_fix() {
+    if [[ -x "$CHECK_HOST" || -f "$CHECK_HOST" ]]; then
+        bash "$CHECK_HOST" --fix
+    else
+        ensure_docker
+        if ! docker network inspect nexus >/dev/null 2>&1; then
+            log_step "Creating network nexus"
+            docker network create nexus --subnet 172.52.0.0/16 --gateway 172.52.0.1 >/dev/null
+            log_ok "network nexus created"
+        fi
+        if [[ ! -f "$ROOT_DIR/.env" && -f "$ROOT_DIR/.env.example" ]]; then
+            cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
+            log_ok "Created .env from .env.example"
+            log_warn "Review .env values before running services"
+        fi
+    fi
+}
+
+preflight_readonly() {
+    if [[ -x "$CHECK_HOST" || -f "$CHECK_HOST" ]]; then
+        bash "$CHECK_HOST"
+    else
+        ensure_docker
+        if docker network inspect nexus >/dev/null 2>&1; then
+            log_ok "network nexus exists"
+        else
+            log_warn "network nexus is missing"
+        fi
+        if [[ -f "$ROOT_DIR/.env" ]]; then
+            log_ok ".env exists"
+        else
+            log_warn ".env missing"
+        fi
+    fi
+}
+
+run_compose() {
+    (cd "$ROOT_DIR" && docker compose "$@")
+}
+
+command="${1:-help}"
+if [[ $# -gt 0 ]]; then
+    shift
+fi
+
+case "$command" in
+    help|-h|--help)
+        usage
+        ;;
+    preflight)
+        preflight_readonly
+        ;;
+    network)
+        preflight_fix
+        ;;
+    up|run|start)
+        preflight_fix
+        if [[ $# -eq 0 ]]; then
+            run_compose up -d --remove-orphans
+        else
+            run_compose up -d --remove-orphans "$@"
+        fi
+        ;;
+    down|stop)
+        ensure_docker
+        if [[ $# -eq 0 ]]; then
+            run_compose down --timeout 30 --remove-orphans
+        else
+            run_compose stop --timeout 30 "$@"
+            run_compose rm -f "$@"
+        fi
+        ;;
+    restart)
+        ensure_docker
+        if [[ $# -eq 0 ]]; then
+            run_compose restart
+        else
+            run_compose restart "$@"
+        fi
+        ;;
+    pull|update)
+        preflight_fix
+        if [[ $# -eq 0 ]]; then
+            run_compose pull
+            run_compose up -d --remove-orphans
+        else
+            run_compose pull "$@"
+            run_compose up -d --remove-orphans "$@"
+        fi
+        ;;
+    logs|tail)
+        ensure_docker
+        if [[ $# -eq 0 ]]; then
+            run_compose logs -f
+        else
+            run_compose logs -f "$@"
+        fi
+        ;;
+    ps|status)
+        ensure_docker
+        if [[ $# -eq 0 ]]; then
+            run_compose ps
+        else
+            run_compose ps "$@"
+        fi
+        ;;
+    config|render)
+        ensure_docker
+        if [[ $# -eq 0 ]]; then
+            run_compose config
+        else
+            run_compose config "$@"
+        fi
+        ;;
+    *)
+        log_err "Unknown command: $command"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac

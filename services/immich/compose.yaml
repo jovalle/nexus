@@ -29,6 +29,8 @@ services:
       DB_USERNAME: ${IMMICH_DB_USER:?IMMICH_DB_USER not set}
       IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
       REDIS_HOSTNAME: redis
+    extra_hosts:
+      - "auth.${DOMAIN}:host-gateway"
     healthcheck:
       interval: 30s
       retries: 3
@@ -36,7 +38,7 @@ services:
       test: [ "CMD-SHELL", "curl -f http://localhost:2283/api/server/ping || exit 1" ]
       timeout: 10s
     hostname: immich
-    image: ghcr.io/immich-app/immich-server:release
+    image: ghcr.io/immich-app/immich-server:v2.6.3
     labels:
       homepage.description: Photo and Video Management
       homepage.group: Documents

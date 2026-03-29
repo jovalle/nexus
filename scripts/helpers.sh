@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# helpers.sh — Shared functions for Nexus justfile recipes
+# helpers.sh — Shared functions for Nexus shell scripts
 # =============================================================================
-# Source this at the top of any recipe that needs service resolution, spinners,
+# Source this at the top of any script that needs service resolution, spinners,
 # or cached docker state.
 #
 #   source "{{ scripts_dir }}/helpers.sh"
@@ -127,7 +127,7 @@ spin_while() {
 #   Called in a loop — each invocation spawns a background job.
 #   Use wait_parallel to collect results.
 #
-# We use a simpler pattern: just spawn + wait with a job semaphore.
+# We use a simpler pattern: spawn + wait with a job semaphore.
 
 _PARALLEL_PIDS=()
 

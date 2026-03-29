@@ -10,7 +10,7 @@
 
 ## Overview
 
-Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing (80+ services) catalog managed through a single root compose file with per-service directories, environment files, and a `just`-based CLI.
+Born from consolidating numerous containers onto my TrueNAS server, this project aims to organize the growing (80+ services) catalog managed through a single root compose file with per-service directories, environment files, and a bash-based CLI.
 
 ## Quick Start
 
@@ -18,18 +18,20 @@ Born from consolidating numerous containers onto my TrueNAS server, this project
 # Clone and enter
 git clone https://github.com/jovalle/nexus.git && cd nexus
 
-# Run setup (installs just, docker, creates network, etc.)
-./setup.sh            # interactive
-./setup.sh --auto     # opinionated defaults
+# Validate host requirements
+./nexus preflight
 
-# Copy and fill in your environment
-cp .env.example .env
+# Prepare local defaults (.env + network)
+./nexus network
+
+# Review and fill in your environment
+$EDITOR .env
 
 # Run everything
-just run
+./nexus up
 
 # Run a single service
-just run plex
+./nexus up plex
 ```
 
 ## Structure
@@ -41,32 +43,29 @@ nexus/
 ├── archive/              # Retired service definitions
 ├── backups/              # Backup data (gitignored)
 ├── compose.yaml          # Root compose — includes all services
-├── justfile              # Task runner recipes
+├── nexus                 # Bash CLI for stack operations
 ├── scripts/              # Maintenance scripts
 ├── services/
 │   └── {name}/
 │       ├── compose.yaml  # Service definition
 │       └── .env          # Service-specific overrides (gitignored)
-└── setup.sh              # Host provisioning script
+└── LICENSE
 ```
 
 ## Usage
 
-All management goes through `just`:
+All management goes through `./nexus`:
 
 ```bash
-just              # List all recipes
-just run [svc]    # Run service(s)
-just stop [svc]   # Stop service(s)
-just restart svc  # Restart a service
-just tail svc     # Stream logs
-just show [svc]   # Show container status
-just retire svc   # Retire a service
+./nexus help            # Show available commands
+./nexus preflight       # Validate host requirements
+./nexus up [svc]        # Start service(s)
+./nexus down [svc]      # Stop service(s)
+./nexus restart [svc]   # Restart service(s)
+./nexus logs [svc]      # Stream logs
+./nexus ps [svc]        # Show container status
+./nexus pull [svc]      # Pull updates and restart
 ```
-
-Run `just --list` for the full recipe list.
-
-Install shell completion with just install completion.
 
 ## Configuration
 
