@@ -117,9 +117,6 @@ http:
     links:
       rule: 'Host(`links.{{ env "DOMAIN" }}`)'
       service: "linkwarden"
-    keep:
-      rule: 'Host(`keep.{{ env "DOMAIN" }}`)'
-      service: "karakeep"
     web-redirect:
       entryPoints:
         - web
@@ -192,10 +189,6 @@ http:
       loadBalancer:
         servers:
           - url: "http://linkwarden:3000"
-    karakeep:
-      loadBalancer:
-        servers:
-          - url: "http://karakeep:3000"
     proxmox:
       loadBalancer:
         servers:

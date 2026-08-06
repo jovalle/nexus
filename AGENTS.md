@@ -47,9 +47,7 @@ LAN requests must bypass Cloudflare and Cloudflare Access. They must not bypass 
 | --- | --- | --- |
 | `tasks.techn.is` | Vikunja | `http://vikunja:3456` |
 | `links.techn.is` | Linkwarden | `http://linkwarden:3000` |
-| `keep.techn.is` | Karakeep | `http://karakeep:3000` |
-
-`links.techn.is` belongs to Linkwarden. Do not reuse it for Karakeep or another bookmarking application; Karakeep's canonical hostname is `keep.techn.is`.
+`links.techn.is` belongs to Linkwarden. Do not reuse it for another bookmarking application.
 
 ## Change checklist
 

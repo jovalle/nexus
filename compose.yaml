@@ -128,10 +128,6 @@ include:
   - path: services/intel-gpu-exporter/compose.yaml
     env_file:
       - .env
-  - path: services/karakeep/compose.yaml
-    env_file:
-      - .env
-      - services/karakeep/.env
   - path: services/jellyfin/compose.yaml
     env_file:
       - .env
