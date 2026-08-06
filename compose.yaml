@@ -128,6 +128,10 @@ include:
   - path: services/intel-gpu-exporter/compose.yaml
     env_file:
       - .env
+  - path: services/karakeep/compose.yaml
+    env_file:
+      - .env
+      - services/karakeep/.env
   - path: services/jellyfin/compose.yaml
     env_file:
       - .env
@@ -307,6 +311,10 @@ include:
   - path: services/valkey/compose.yaml
     env_file:
       - .env
+  - path: services/vikunja/compose.yaml
+    env_file:
+      - .env
+      - services/vikunja/.env
   - path: services/wallos/compose.yaml
     env_file:
       - .env

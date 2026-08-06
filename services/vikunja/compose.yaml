@@ -1,0 +1,48 @@
+networks:
+  nexus:
+    external: true
+services:
+  vikunja:
+    cap_drop:
+      - ALL
+    container_name: vikunja
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    environment:
+      VIKUNJA_AUTH_LOCAL_ENABLED: "true"
+      VIKUNJA_DATABASE_PATH: /db/vikunja.db
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: ${VIKUNJA_ENABLE_REGISTRATION:-false}
+      VIKUNJA_SERVICE_PUBLICURL: https://tasks.${DOMAIN:?DOMAIN not set}/
+      VIKUNJA_SERVICE_SECRET: ${VIKUNJA_SECRET:?VIKUNJA_SECRET not set}
+      VIKUNJA_SERVICE_TIMEZONE: ${TZ:?TZ not set}
+    hostname: vikunja
+    image: vikunja/vikunja:2.3.0
+    labels:
+      gatus.group: productivity
+      gatus.priority: P2
+      homepage.description: Projects, tasks, and ideas
+      homepage.group: Productivity
+      homepage.href: https://tasks.${DOMAIN:?DOMAIN not set}
+      homepage.icon: vikunja
+      homepage.name: Vikunja
+    networks:
+      - nexus
+    ports:
+      - 127.0.0.1:3456:3456
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "1000:1000"
+    volumes:
+      - ${DATA_PATH:?DATA_PATH not set}/vikunja/db:/db
+      - ${DATA_PATH:?DATA_PATH not set}/vikunja/files:/app/vikunja/files
