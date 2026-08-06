@@ -51,6 +51,7 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    user: "1000:1000"
     volumes:
       - ${DATA_PATH:?DATA_PATH not set}/karakeep/data:/data
   karakeep-chrome:
@@ -110,5 +111,6 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    user: "1000:1000"
     volumes:
       - ${DATA_PATH:?DATA_PATH not set}/karakeep/meilisearch:/meili_data
