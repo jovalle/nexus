@@ -31,7 +31,7 @@ services:
       MEILI_ADDR: http://karakeep-meilisearch:7700
       MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY:?}
       NEXTAUTH_SECRET: ${KARAKEEP_NEXTAUTH_SECRET:?}
-      NEXTAUTH_URL: https://links.${DOMAIN:?DOMAIN not set}
+      NEXTAUTH_URL: https://keep.${DOMAIN:?DOMAIN not set}
       RATE_LIMITING_ENABLED: "true"
     hostname: karakeep
     image: ghcr.io/karakeep-app/karakeep:0.33.1
