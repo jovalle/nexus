@@ -1,6 +1,7 @@
 networks:
   nexus:
     external: true
+    name: ${NEXUS_NETWORK:-nexus}
 services:
   vikunja:
     cap_drop:

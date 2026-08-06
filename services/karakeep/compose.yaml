@@ -2,6 +2,7 @@ networks:
   karakeep:
   nexus:
     external: true
+    name: ${NEXUS_NETWORK:-nexus}
 services:
   karakeep:
     cap_drop:
