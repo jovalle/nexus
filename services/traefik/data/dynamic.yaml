@@ -111,6 +111,15 @@ http:
       middlewares:
         - short-host-to-go
       service: noop@internal
+    tasks:
+      rule: 'Host(`tasks.{{ env "DOMAIN" }}`)'
+      service: "vikunja"
+    links:
+      rule: 'Host(`links.{{ env "DOMAIN" }}`)'
+      service: "linkwarden"
+    keep:
+      rule: 'Host(`keep.{{ env "DOMAIN" }}`)'
+      service: "karakeep"
     web-redirect:
       entryPoints:
         - web
@@ -175,6 +184,18 @@ http:
       loadBalancer:
         servers:
           - url: "http://goku:9001"
+    vikunja:
+      loadBalancer:
+        servers:
+          - url: "http://vikunja:3456"
+    linkwarden:
+      loadBalancer:
+        servers:
+          - url: "http://linkwarden:3000"
+    karakeep:
+      loadBalancer:
+        servers:
+          - url: "http://karakeep:3000"
     proxmox:
       loadBalancer:
         servers:

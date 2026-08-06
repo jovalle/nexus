@@ -40,7 +40,7 @@ services:
       gatus.priority: P2
       homepage.description: Links, references, and inspiration
       homepage.group: Productivity
-      homepage.href: https://links.${DOMAIN:?DOMAIN not set}
+      homepage.href: https://keep.${DOMAIN:?DOMAIN not set}
       homepage.icon: karakeep
       homepage.name: Karakeep
     networks:
