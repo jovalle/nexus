@@ -33,7 +33,7 @@ services:
       NEXTAUTH_URL: https://links.${DOMAIN:?DOMAIN not set}
       RATE_LIMITING_ENABLED: "true"
     hostname: karakeep
-    image: ghcr.io/karakeep-app/karakeep:0.33.0
+    image: ghcr.io/karakeep-app/karakeep:0.33.1
     labels:
       gatus.group: productivity
       gatus.priority: P2
